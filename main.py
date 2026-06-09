@@ -9,7 +9,8 @@ from flask import Flask
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # --- ⚠️ إعدادات البوت الأساسية ---
-BOT_TOKEN = "8891688659:AAGmMFSFPI2FI3gh1cbuYf0lPgCVVfOIJy4"      # توكن البوت الخاص بك من BotFather
+# السطر ده بيسحب التوكن أوتوماتيك من الإعدادات الخارجية لـ Render لمنع أي تهنيج
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAGmMFSFPI2FI3gh1cbuYf0lPgCVVfOIJy4")
 ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبوت 👑
 
 # 🔑 بيانات الحسابات لموقع Durian 
@@ -19,7 +20,7 @@ DURIAN_ACCOUNTS = [
 ]
 # -----------------------------------------------------------------
 
-# --- 📦 تعريف وتجهيز جميع المتغيرات أولاً لمنع الـ NameError ---
+# تعريف المتغيرات أولاً لمنع الـ NameError
 user_hunting_targets = {}
 hunting_active = False
 active_hunted_numbers = {}
@@ -77,9 +78,7 @@ ALL_COUNTRIES = {
     "ألمانيا": {"code": "de", "price": 0.25, "flag": "🇩🇪"}
 }
 
-bot = telebot.TeleBot(BOT_TOKEN, num_threads=4)
-
-# --- 🌐 إعداد خادم الويب ومنظومة الحماية من النوم الإجبارى ---
+# --- 🌐 إعداد خادم الويب ومنظومة الحماية من النوم الإجباري ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -102,7 +101,7 @@ def keep_alive_ping():
             pass
         time.sleep(300)
 
-# --- ⚙️ وظائف السيستم والبيانات ---
+# --- وظائف السيستم والبيانات ---
 def load_all_data():
     global USER_BALANCES, SETTINGS, PROMO_CODES, USER_ORDERS, ALL_COUNTRIES, BANNED_USERS, SYSTEM_STATS, USED_REFERRALS
     if os.path.exists(BALANCES_FILE):

@@ -8,7 +8,7 @@ import string
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # --- ⚠️ إعدادات البوت الأساسية ---
-BOT_TOKEN = "8891688659:AAHanFxd_OAtk6h6LupMgI3kfTTVmw8gTa0"      # توكن البوت الخاص بك من BotFather
+BOT_TOKEN = "8891688659:AAGmMFSFPI2FI3gh1cbuYf0lPgCVVfOIJy4"      # توكن البوت الخاص بك من BotFather
 ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبوت 👑
 
 # 🔑 بيانات الحسابات لموقع Durian 

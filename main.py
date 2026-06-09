@@ -42,7 +42,7 @@ USER_BALANCES = {}
 SETTINGS = {
     "rate": 50.0, 
     "wallet": "01028520360", # رقم الكاش الفريش الخاص بك 📱
-    "binance_id": "123456789", 
+    "binance_id": "825961222", 
     "pid": "0257", 
     "ref_reward": 0.01 
 }
@@ -80,7 +80,7 @@ ALL_COUNTRIES = {
 
 bot = telebot.TeleBot(BOT_TOKEN, num_threads=4)
 
-# --- 🌐 إعداد خادم الويب ومنظومة الحماية من النوم الإجباري ---
+# --- 🌐 إعداد خادم الويب ومنظومة الحماية من النوم الإجبارى ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -187,22 +187,6 @@ def get_country_info_by_code(code):
         if info["code"] == code: return name, info["price"], info["flag"]
     return f"دولة ({code})", 0.25, "🌍"
 
-def check_user_joined_channel(user_id):
-    if user_id == ADMIN_ID: return True
-    try:
-        member = bot.get_chat_member(CHANNEL_USER, user_id)
-        if member.status in ['member', 'creator', 'administrator']: return True
-    except: pass
-    return False
-
-def get_force_join_keyboard():
-    markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        InlineKeyboardButton("📢 اشترك في القناة من هنا أولاً 📢", url=CHANNEL_URL),
-        InlineKeyboardButton("🔄 ✅ تحقق من الاشتراك الحين", callback_data="check_join_btn")
-    )
-    return markup
-
 def get_admin_dashboard_keyboard():
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("💰 شحن رصيد لزبون", callback_data="admin_add_balance"), InlineKeyboardButton("➖ سحب رصيد", callback_data="admin_sub_balance"))
@@ -289,10 +273,6 @@ def send_welcome(message):
                     try: bot.send_message(inviter_id, f"🎉 <b>دخل زبون جديد عبر رابط إحالتك!</b>\n💰 المكافأة: <b>+{reward}$</b>")
                     except: pass
         except: pass
-
-    if not check_user_joined_channel(user_id):
-        bot.send_message(message.chat.id, f"⚠️ <b>يجب الاشتراك في قناة البوت الرسمية أولاً لتفعيل الحساب!</b>", reply_markup=get_force_join_keyboard(), parse_mode="HTML")
-        return
         
     if user_id == ADMIN_ID:
         admin_text = (
@@ -316,17 +296,6 @@ def handle_callbacks(call):
 
     try: bot.answer_callback_query(call.id)
     except: pass
-
-    if call.data == "check_join_btn":
-        if check_user_joined_channel(user_id):
-            welcome_text = f"• <u><b>🕸️ 𝕾𝕻𝕴𝕯𝕰𝕽 𝕾𝕸𝕾 🕷️ - Auto Hunting Bot</b></u> •\n\n💰 <b>رصيدك الحالي:</b> {get_user_balance(user_id):.2f} $\n\n🆔 الـ ID الخاص بك: <code>{user_id}</code>"
-            bot.edit_message_text(chat_id=user_id, message_id=call.message.id, text=welcome_text, reply_markup=get_main_keyboard(), parse_mode="HTML")
-        else:
-            try: bot.send_message(user_id, "❌ لسه مشركتش في القناة يا غالي! اشترك أولاً.")
-            except: pass
-        return
-
-    if not check_user_joined_channel(user_id) and user_id != ADMIN_ID: return
 
     if user_id == ADMIN_ID:
         if call.data == "admin_back_main":
@@ -635,7 +604,7 @@ def global_auto_buyer():
                             active_hunted_numbers[phone_number] = {"country": c_name, "flag": flag, "price": price}
                             
                             for u_id, targets_list in list(user_hunting_targets.items()):
-                                if u_id not in BANNED_USERS and check_user_joined_channel(u_id) and country_code in targets_list and get_user_balance(u_id) > 0:
+                                if u_id not in BANNED_USERS and country_code in targets_list and get_user_balance(u_id) > 0:
                                     markup = InlineKeyboardMarkup()
                                     markup.add(InlineKeyboardButton("🛒 شراء الآن", callback_data=f"claim_{phone_number}_{idx}"))
                                     formatted_msg = f"🥳 🎰 <b>الدولة متاحة الآن</b>\n\n{flag} {c_name}\n✅ رقم جاهز وفريش تماماً!\n💰 سعر الشراء: <b>${price:.2f}</b>\n\n🛒 اضغط شراء الآن لحجزه فوراً"

@@ -5,6 +5,7 @@ import time
 import os
 import random
 import string
+from flask import Flask
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # --- ⚠️ إعدادات البوت الأساسية ---
@@ -18,7 +19,12 @@ DURIAN_ACCOUNTS = [
 ]
 # -----------------------------------------------------------------
 
-bot = telebot.TeleBot(BOT_TOKEN, num_threads=4) # تفعيل تعدد الخيوط للبوت لمنع التهنيج
+# --- 📦 تعريف وتجهيز جميع المتغيرات أولاً لمنع الـ NameError ---
+user_hunting_targets = {}
+hunting_active = False
+active_hunted_numbers = {}
+admin_state = {}
+USER_PURCHASE_COOLDOWN = {}
 
 BALANCES_FILE = "balances.txt"
 SETTINGS_FILE = "settings.txt"
@@ -71,12 +77,32 @@ ALL_COUNTRIES = {
     "ألمانيا": {"code": "de", "price": 0.25, "flag": "🇩🇪"}
 }
 
-user_hunting_targets = {}
-hunting_active = False
-active_hunted_numbers = {}
-admin_state = {}
-USER_PURCHASE_COOLDOWN = {}
+bot = telebot.TeleBot(BOT_TOKEN, num_threads=4)
 
+# --- 🌐 إعداد خادم الويب ومنظومة الحماية من النوم الإجبارى ---
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "🟢 SPIDER SMS BOT IS LIVE AND RUNNING ULTRA 24/7 SUCCESSFULLY!"
+
+def run_flask_server():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive_ping():
+    time.sleep(20)
+    port = os.environ.get("PORT", "8080")
+    local_url = f"http://127.0.0.1:{port}/"
+    while True:
+        try:
+            requests.get(local_url, timeout=5)
+            print("⚡ [Keep-Alive] تم إرسال نبضة الإيقاظ بنجاح، السيرفر مستيقظ!")
+        except:
+            pass
+        time.sleep(300)
+
+# --- ⚙️ وظائف السيستم والبيانات ---
 def load_all_data():
     global USER_BALANCES, SETTINGS, PROMO_CODES, USER_ORDERS, ALL_COUNTRIES, BANNED_USERS, SYSTEM_STATS, USED_REFERRALS
     if os.path.exists(BALANCES_FILE):
@@ -159,8 +185,6 @@ def log_order(user_id, order_text):
     try:
         with open(ORDERS_FILE, "a") as f: f.write(f"{user_id}||{order_text}\n")
     except: pass
-
-load_all_data()
 
 def get_user_balance(user_id):
     if user_id not in USER_BALANCES: 
@@ -298,22 +322,20 @@ def send_welcome(message):
         )
         bot.send_message(message.chat.id, admin_text, reply_markup=get_admin_dashboard_keyboard(), parse_mode="HTML")
     else:
-        welcome_text = f"• <u><b>🕸️ 𝕊ℙ𝓘𝓓𝓔𝓡 𝕊𝕄𝕊 🕷️ - Auto Hunting Bot</b></u> •\n\n💰 <b>رصيدك الحالي:</b> {get_user_balance(user_id):.2f} $\n\n🆔 الـ ID الخاص بك: <code>{user_id}</code>"
+        welcome_text = f"• <u><b>🕸️ 𝕾𝕻𝕴𝕯𝕰𝕽 𝕾𝕸𝕾 🕷️ - Auto Hunting Bot</b></u> •\n\n💰 <b>رصيدك الحالي:</b> {get_user_balance(user_id):.2f} $\n\n🆔 الـ ID الخاص بك: <code>{user_id}</code>"
         bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_keyboard(), parse_mode="HTML")
 
-# ⚡ معالجة الأزرار بحماية تامة ضد الـ Response Timeout ⚡
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callbacks(call):
     user_id = call.from_user.id
     if user_id in BANNED_USERS and user_id != ADMIN_ID: return
 
-    # تأمين فوري: الرد على التليجرام فوراً لمنع تعليق الزرار وإغلاق الـ Query
     try: bot.answer_callback_query(call.id)
     except: pass
 
     if call.data == "check_join_btn":
         if check_user_joined_channel(user_id):
-            welcome_text = f"• <u><b>🕸️ 𝕊ℙ𝓘𝓓𝓔𝓡 𝕊𝕄𝕊 🕷️ - Auto Hunting Bot</b></u> •\n\n💰 <b>رصيدك الحالي:</b> {get_user_balance(user_id):.2f} $\n\n🆔 الـ ID الخاص بك: <code>{user_id}</code>"
+            welcome_text = f"• <u><b>🕸️ 𝕾𝕻𝕴𝕯𝕰𝕽 𝕾𝕸𝕾 🕷️ - Auto Hunting Bot</b></u> •\n\n💰 <b>رصيدك الحالي:</b> {get_user_balance(user_id):.2f} $\n\n🆔 الـ ID الخاص بك: <code>{user_id}</code>"
             bot.edit_message_text(chat_id=user_id, message_id=call.message.id, text=welcome_text, reply_markup=get_main_keyboard(), parse_mode="HTML")
         else:
             try: bot.send_message(user_id, "❌ لسه مشركتش يا غالي! اشترك الحين.")
@@ -492,7 +514,6 @@ def handle_callbacks(call):
                     parse_mode="HTML"
                 )
                 
-                # 🚀 تفجير خيط مستقل فوراً لمنع سقوط البوت أو تهنيجه نهائياً 🚀
                 threading.Thread(target=wait_for_sms, args=(user_id, phone, price, acc_index, call.message.id, target_info['country'], target_info['flag']), daemon=True).start()
             else:
                 bot.send_message(user_id, "❌ رصيدك غير كافٍ للشراء!")
@@ -643,7 +664,8 @@ def global_auto_buyer():
                                     markup = InlineKeyboardMarkup()
                                     markup.add(InlineKeyboardButton("🛒 شراء الآن", callback_data=f"claim_{phone_number}_{idx}"))
                                     formatted_msg = f"🥳 🎰 <b>الدولة متاحة الآن</b>\n\n{flag} {c_name}\n✅ رقم جاهز وفريش تماماً!\n💰 سعر الشراء: <b>${price:.2f}</b>\n\n🛒 اضغط شراء الآن لحجزه فوراً"
-                                    bot.send_message(u_id, formatted_msg, reply_markup=markup, parse_mode="HTML")
+                                    try: bot.send_message(u_id, formatted_msg, reply_markup=markup, parse_mode="HTML")
+                                    except: pass
                             break
                 except: pass
                 time.sleep(0.5)
@@ -759,11 +781,20 @@ def process_admin_broadcast(message):
     bot.send_message(ADMIN_ID, f"✅ تم الإرسال لـ {count} زبون بنجاح.")
 
 def run_bot_safe():
-    print("🕸️🕷️ تم تفعيل نظام تعدد الخيوط المدرع وحماية الـ Polling بنجاح... 🚀✨📌")
+    load_all_data()
+    print("🕸️🕷️ تشغيل سرفر الويب وتفعيل النبضات الذكية لحماية البوت 24/7... 🚀✨📌")
+    
+    # 1. تشغيل سيرفر الويب Flask في خيط مستقل للرد على الاستضافة
+    threading.Thread(target=run_flask_server, daemon=True).start()
+    
+    # 2. تشغيل منظومة البنج الذاتي لمنع السيرفر من النوم نهائياً
+    threading.Thread(target=keep_alive_ping, daemon=True).start()
+    
+    # 3. تشغيل محرك الصيد التلقائي بعد استقرار المتغيرات
     threading.Thread(target=global_auto_buyer, daemon=True).start()
+    
     while True:
         try: 
-            # رفع قيمة الـ timeout لحماية الاتصال من الانهيار والسقوط الدائم
             bot.infinity_polling(timeout=80, long_polling_timeout=40)
         except: 
             time.sleep(3)

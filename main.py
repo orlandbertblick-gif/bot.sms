@@ -9,8 +9,8 @@ from flask import Flask
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # --- ⚠️ إعدادات البوت الأساسية ---
-# السطر ده بيسحب التوكن أوتوماتيك من الإعدادات الخارجية لـ Render لمنع أي تهنيج
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAGmMFSFPI2FI3gh1cbuYf0lPgCVVfOIJy4")
+# الحين الكود بيقرأ التوكن أوتوماتيك من الـ Environment الخارجية لـ Render لمنع التهنيج
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAFEsRsfQYvm_6NhNwugIBZB84gz5j_O9tQ")
 ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبوت 👑
 
 # 🔑 بيانات الحسابات لموقع Durian 
@@ -78,6 +78,8 @@ ALL_COUNTRIES = {
     "ألمانيا": {"code": "de", "price": 0.25, "flag": "🇩🇪"}
 }
 
+bot = telebot.TeleBot(BOT_TOKEN, num_threads=4)
+
 # --- 🌐 إعداد خادم الويب ومنظومة الحماية من النوم الإجباري ---
 app = Flask(__name__)
 
@@ -90,7 +92,7 @@ def run_flask_server():
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive_ping():
-    time.sleep(20)
+    time.sleep(30) # الانتظار حتى يستقر إقلاع السيرفر تماماً
     port = os.environ.get("PORT", "8080")
     local_url = f"http://127.0.0.1:{port}/"
     while True:
@@ -99,7 +101,7 @@ def keep_alive_ping():
             print("⚡ [Keep-Alive] تم إرسال نبضة الإيقاظ بنجاح، السيرفر مستيقظ!")
         except:
             pass
-        time.sleep(300)
+        time.sleep(180) # نبضة تنشيطية كل 3 دقائق بدلاً من 5 لزيادة الأمان
 
 # --- وظائف السيستم والبيانات ---
 def load_all_data():
@@ -779,24 +781,29 @@ def process_admin_broadcast(message):
         except: pass
     bot.send_message(ADMIN_ID, f"✅ تم الإرسال لـ {count} زبون بنجاح.")
 
+def run_bot_polling():
+    while True:
+        try:
+            bot.infinity_polling(timeout=80, long_polling_timeout=40)
+        except Exception as e:
+            print(f"⚠️ خطأ في البولينج: {e}")
+            time.sleep(3)
+
 def run_bot_safe():
     load_all_data()
-    print("🕸️🕷️ تشغيل سرفر الويب وتفعيل النبضات الذكية لحماية البوت 24/7... 🚀✨📌")
+    print("🕸️🕷️ إطلاق المنظومة السيبرانية وحماية الـ Polling والويب 24/7... 🚀✨📌")
     
-    # 1. تشغيل سيرفر الويب Flask في خيط مستقل للرد على الاستضافة
-    threading.Thread(target=run_flask_server, daemon=True).start()
+    # 1. تشغيل محرك التليجرام (Polling) في خيط مستقل بالخلفية
+    threading.Thread(target=run_bot_polling, daemon=True).start()
     
-    # 2. تشغيل منظومة البنج الذاتي لمنع السيرفر من النوم نهائياً
+    # 2. تشغيل منظومة البنج الذاتي الفائقة (كل 3 دقائق) في خيط مستقل
     threading.Thread(target=keep_alive_ping, daemon=True).start()
     
-    # 3. تشغيل محرك الصيد التلقائي بعد استقرار المتغيرات
+    # 3. تشغيل محرك الصيد التلقائي بعد استقرار المتغيرات في خيط مستقل
     threading.Thread(target=global_auto_buyer, daemon=True).start()
     
-    while True:
-        try: 
-            bot.infinity_polling(timeout=80, long_polling_timeout=40)
-        except: 
-            time.sleep(3)
+    # 4. 🔥 جعل خادم الويب الأساسي (Flask) هو العملية الرئيسية لمنع النوم نهائياً
+    run_flask_server()
 
 if __name__ == "__main__":
     run_bot_safe()

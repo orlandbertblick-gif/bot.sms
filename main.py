@@ -24,7 +24,6 @@ CHANNEL_URL = "https://t.me/Spider_Sms_Channels"
 SUPPORT_URL = "https://t.me/SpiderSmsX_1"
 # -----------------------------------------------------------------
 
-# تعريف المتغيرات أولاً لمنع الـ NameError
 user_hunting_targets = {}
 hunting_active = False
 active_hunted_numbers = {}
@@ -41,8 +40,8 @@ REFERRALS_FILE = "referrals.txt"
 USER_BALANCES = {}
 SETTINGS = {
     "rate": 50.0, 
-    "wallet": "01028520360", # رقم الكاش الفريش الخاص بك 📱
-    "binance_id": "825961222", 
+    "wallet": "01028520360", # رقم الكاش الثابت 📱
+    "binance_id": "123456789", 
     "pid": "0257", 
     "ref_reward": 0.01 
 }
@@ -75,12 +74,25 @@ ALL_COUNTRIES = {
     "فرنسا": {"code": "fr", "price": 0.25, "flag": "🇫🇷"}, "بورتوريكو": {"code": "pr", "price": 0.25, "flag": "🇵🇷"},
     "فيجي": {"code": "fj", "price": 0.25, "flag": "🇫🇯"}, "أستراليا": {"code": "au", "price": 0.25, "flag": "🇦🇺"},
     "سلوفاكيا": {"code": "sk", "price": 0.25, "flag": "🇸🇰"}, "إسبانيا": {"code": "es", "price": 0.25, "flag": "🇪🇸"},
-    "ألمانيا": {"code": "de", "price": 0.25, "flag": "🇩🇪"}
+    "ألمانيا": {"code": "de", "price": 0.25, "flag": "🇩🇪"},
+    # 🔥 الدول الجديدة المضافة بالملي الحين 🎰 👇
+    "العراق": {"code": "iq", "price": 0.25, "flag": "🇮🇶"},
+    "رييونيون": {"code": "re", "price": 0.25, "flag": "🇷🇪"},
+    "الرأس الأخضر": {"code": "cv", "price": 0.25, "flag": "🇨🇻"},
+    "الأوروغواي": {"code": "uy", "price": 0.25, "flag": "🇺🇾"},
+    "كوبا": {"code": "cu", "price": 0.25, "flag": "🇨🇺"},
+    "أوكرانيا": {"code": "ua", "price": 0.25, "flag": "🇺🇦"},
+    "اليابان": {"code": "jp", "price": 0.25, "flag": "🇯🇵"},
+    "إيسواتيني": {"code": "sz", "price": 0.25, "flag": "🇸🇿"},
+    "المملكة المتحدة": {"code": "gb", "price": 0.25, "flag": "🇬🇧"},
+    "البرتغال": {"code": "pt", "price": 0.25, "flag": "🇵🇹"},
+    "رومانيا": {"code": "ro", "price": 0.25, "flag": "🇷🇴"},
+    "التشيك": {"code": "cz", "price": 0.25, "flag": "🇨🇿"},
+    "ناميبيا": {"code": "na", "price": 0.25, "flag": "🇳🇦"}
 }
 
 bot = telebot.TeleBot(BOT_TOKEN, num_threads=4)
 
-# --- 🌐 إعداد خادم الويب ومنظومة الحماية من النوم الإجبارى ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -103,7 +115,6 @@ def keep_alive_ping():
             pass
         time.sleep(180)
 
-# --- وظائف السيستم والبيانات ---
 def load_all_data():
     global USER_BALANCES, SETTINGS, PROMO_CODES, USER_ORDERS, ALL_COUNTRIES, BANNED_USERS, SYSTEM_STATS, USED_REFERRALS
     if os.path.exists(BALANCES_FILE):
@@ -577,7 +588,7 @@ def global_auto_buyer():
             for target_code in targets_list: active_codes.add(target_code)
                 
         if not active_codes:
-            time.sleep(1)
+            time.sleep(0.5) 
             continue
 
         for c_name, c_info in list(ALL_COUNTRIES.items()):
@@ -588,7 +599,7 @@ def global_auto_buyer():
                 if "اسم_الحساب" in acc[0] or "مفتاح_API" in acc[1]: continue
                 try:
                     url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={acc[0]}&ApiKey={acc[1]}&cuy={country_code}&pid={str(SETTINGS['pid'])}&num=1&noblack=1&serial=2"
-                    response = requests.get(url, timeout=4)
+                    response = requests.get(url, timeout=3)
                     
                     if response.status_code == 200:
                         res_json = response.json()
@@ -612,8 +623,8 @@ def global_auto_buyer():
                                     except: pass
                             break
                 except: pass
-                time.sleep(0.5)
-            time.sleep(0.5)
+                time.sleep(0.1) # 🚀 وضع التوربو السريع لخطف الأرقام
+            time.sleep(0.1)
 
 def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name, flag):
     acc = DURIAN_ACCOUNTS[acc_index]
@@ -626,7 +637,7 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
             progress_markup.add(InlineKeyboardButton(f"{step}", callback_data="none"))
             timer_text = f"🔄 <b>جاري تجهيز الخط... {step}</b>\n📱 الرقم: <code>[ جاري التأمين... * * * * * * * * * ]</code>"
             bot.edit_message_text(chat_id=user_id, message_id=status_msg_id, text=timer_text, reply_markup=progress_markup, parse_mode="HTML")
-            time.sleep(0.3) 
+            time.sleep(0.2) 
         except: pass
 
     try:
@@ -664,7 +675,6 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
                 try: bot.pin_chat_message(chat_id=user_id, message_id=sent_pin_msg.message_id, disable_notification=False)
                 except: pass
                 
-                # 🔥 إرسال الإثبات التلقائي لقناة التفعيلات الخاصة بك علانية لزيادة الثقة
                 try:
                     channel_log_msg = (f"🎰 <b>تم حجز وتفعيل رقم جديد بنجاح!</b>\n\n"
                                        f"🌍 <b>الدولة:</b> {flag} {c_name}\n"
@@ -746,16 +756,10 @@ def run_bot_safe():
     load_all_data()
     print("🕸️🕷️ إطلاق المنظومة السيبرانية وحماية الـ Polling والويب 24/7... 🚀✨📌")
     
-    # 1. تشغيل محرك التليجرام (Polling) في خيط مستقل بالخلفية
     threading.Thread(target=run_bot_polling, daemon=True).start()
-    
-    # 2. تشغيل منظومة البنج الذاتي الفائقة (كل 3 دقائق) في خيط مستقل
     threading.Thread(target=keep_alive_ping, daemon=True).start()
-    
-    # 3. تشغيل محرك الصيد التلقائي بعد استقرار المتغيرات في خيط مستقل
     threading.Thread(target=global_auto_buyer, daemon=True).start()
     
-    # 4. جعل خادم الويب الأساسي (Flask) هو العملية الرئيسية لمنع النوم نهائياً
     run_flask_server()
 
 if __name__ == "__main__":

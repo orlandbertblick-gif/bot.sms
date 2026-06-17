@@ -15,7 +15,7 @@ ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبو�
 # 🔑 بيانات الحسابات لموقع Durian 
 DURIAN_ACCOUNTS = [
     ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"],
-    ["Abdelhadi2005", "OXgwaDJnNXIraDByNEVxRXFsNWVEUT09"]
+    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"]
 ]
 
 # 📢 المعرفات والروابط الرسمية المثبتة للمشروع

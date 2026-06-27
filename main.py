@@ -12,10 +12,10 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAFEsRsfQYvm_6NhNwugIBZB84gz5j_O9tQ")
 ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبوت 👑
 
-# 🔑 بيانات الحسابات لموقع Durian (ضع مفتاح كل حساب هنا)
+# 🔑 بيانات الحسابات لموقع Durian 
 DURIAN_ACCOUNTS = [
-    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"], # الحساب الأول
-    ["Abdelhadisayed", "YXRjMHFVSlVtR09RSytaeUNDMTZrQT09"]       # الحساب الثاني 🔥
+    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"],
+    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"]
 ]
 
 # 📢 المعرفات والروابط الرسمية المثبتة للمشروع
@@ -38,8 +38,6 @@ BANNED_FILE = "banned.txt"
 REFERRALS_FILE = "referrals.txt"
 
 USER_BALANCES = {}
-
-# ⚙️ تم تنظيف السطر أدناه بالكامل وحذف كود الـ span الخاطئ ليعمل فوراً بدون مشاكل
 SETTINGS = {
     "rate": 50.0, 
     "wallet": "01028520360", # رقم الكاش الثابت 📱
@@ -47,7 +45,6 @@ SETTINGS = {
     "pid": "0257", 
     "ref_reward": 0.01 
 }
-
 PROMO_CODES = {}
 USER_ORDERS = {}
 BANNED_USERS = set()
@@ -78,6 +75,7 @@ ALL_COUNTRIES = {
     "فيجي": {"code": "fj", "price": 0.25, "flag": "🇫🇯"}, "أستراليا": {"code": "au", "price": 0.25, "flag": "🇦🇺"},
     "سلوفاكيا": {"code": "sk", "price": 0.25, "flag": "🇸🇰"}, "إسبانيا": {"code": "es", "price": 0.25, "flag": "🇪🇸"},
     "ألمانيا": {"code": "de", "price": 0.25, "flag": "🇩🇪"},
+    # 🔥 الدول الجديدة المضافة بالملي الحين 🎰 👇
     "العراق": {"code": "iq", "price": 0.25, "flag": "🇮🇶"},
     "رييونيون": {"code": "re", "price": 0.25, "flag": "🇷🇪"},
     "الرأس الأخضر": {"code": "cv", "price": 0.25, "flag": "🇨🇻"},
@@ -94,6 +92,7 @@ ALL_COUNTRIES = {
 }
 
 bot = telebot.TeleBot(BOT_TOKEN, num_threads=4)
+
 app = Flask(__name__)
 
 @app.route('/')
@@ -144,7 +143,7 @@ def load_all_data():
         try:
             with open(PRICES_FILE, "r") as f:
                 for line in f:
-                    if ":" in line: c_name, pr = line.strip().split(":");
+                    if ":" in line: c_name, pr = line.strip().split(":"); 
                     if c_name in ALL_COUNTRIES: ALL_COUNTRIES[c_name]["price"] = float(pr)
         except: pass
     if os.path.exists(ORDERS_FILE):
@@ -189,7 +188,7 @@ def log_order(user_id, order_text):
     except: pass
 
 def get_user_balance(user_id):
-    if user_id not in USER_BALANCES:
+    if user_id not in USER_BALANCES: 
         USER_BALANCES[user_id] = 0.00
         save_data("balances")
     return USER_BALANCES[user_id]
@@ -238,7 +237,7 @@ def get_countries_keyboard(user_id, page=0):
     markup = InlineKeyboardMarkup(row_width=2)
     user_targets = user_hunting_targets.get(user_id, [])
     items = list(ALL_COUNTRIES.items())
-    per_page = 10 
+    per_page = 10  
     start = page * per_page
     end = start + per_page
     
@@ -574,35 +573,6 @@ def is_number_banned_on_telegram(phone_number, acc_index):
     except: pass
     return False
 
-# 🏎️ دالة فرعية لإرسال طلب فحص مستقل لكل حساب بالتوازي لمنع أي تأخير
-def check_single_account_hunting(acc, idx, country_code, c_name, c_info, active_codes):
-    if "اسم_الحساب" in acc[0] or "مفتاح_API" in acc[1]: return
-    try:
-        url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={acc[0]}&ApiKey={acc[1]}&cuy={country_code}&pid={str(SETTINGS['pid'])}&num=1&noblack=1&serial=2"
-        response = requests.get(url, timeout=3)
-        
-        if response.status_code == 200:
-            res_json = response.json()
-            if res_json.get("code") == 200:
-                phone_number = res_json.get("data")
-                
-                if is_number_banned_on_telegram(phone_number, idx):
-                    release_bad_number(phone_number, idx)
-                    return
-                    
-                price = c_info["price"]
-                flag = c_info["flag"]
-                active_hunted_numbers[phone_number] = {"country": c_name, "flag": flag, "price": price}
-                
-                for u_id, targets_list in list(user_hunting_targets.items()):
-                    if u_id not in BANNED_USERS and country_code in targets_list and get_user_balance(u_id) > 0:
-                        markup = InlineKeyboardMarkup()
-                        markup.add(InlineKeyboardButton("🛒 شراء الآن", callback_data=f"claim_{phone_number}_{idx}"))
-                        formatted_msg = f"🥳 🎰 <b>الدولة متاحة الآن</b>\n\n{flag} {c_name}\n✅ رقم جاهز وفريش تماماً!\n💰 سعر الشراء: <b>${price:.2f}</b>\n\n🛒 اضغط شراء الآن لحجزه فوراً"
-                        try: bot.send_message(u_id, formatted_msg, reply_markup=markup, parse_mode="HTML")
-                        except: pass
-    except: pass
-
 def global_auto_buyer():
     global hunting_active
     hunting_active = True
@@ -618,29 +588,43 @@ def global_auto_buyer():
             for target_code in targets_list: active_codes.add(target_code)
                 
         if not active_codes:
-            time.sleep(0.5)
+            time.sleep(0.5) 
             continue
 
         for c_name, c_info in list(ALL_COUNTRIES.items()):
             country_code = c_info["code"]
             if country_code not in active_codes: continue
             
-            threads = []
-            # 🚀 فحص الحسابين بالتوازي الكامل في نفس الفيمتو ثانية
             for idx, acc in enumerate(DURIAN_ACCOUNTS):
-                t = threading.Thread(
-                    target=check_single_account_hunting, 
-                    args=(acc, idx, country_code, c_name, c_info, active_codes),
-                    daemon=True
-                )
-                threads.append(t)
-                t.start()
-            
-            for t in threads:
-                t.join()
-                
-            time.sleep(0.05) 
-        time.sleep(0.05)
+                if "اسم_الحساب" in acc[0] or "مفتاح_API" in acc[1]: continue
+                try:
+                    url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={acc[0]}&ApiKey={acc[1]}&cuy={country_code}&pid={str(SETTINGS['pid'])}&num=1&noblack=1&serial=2"
+                    response = requests.get(url, timeout=3)
+                    
+                    if response.status_code == 200:
+                        res_json = response.json()
+                        if res_json.get("code") == 200:
+                            phone_number = res_json.get("data")
+                            
+                            if is_number_banned_on_telegram(phone_number, idx):
+                                release_bad_number(phone_number, idx)
+                                continue
+                                
+                            price = c_info["price"]
+                            flag = c_info["flag"]
+                            active_hunted_numbers[phone_number] = {"country": c_name, "flag": flag, "price": price}
+                            
+                            for u_id, targets_list in list(user_hunting_targets.items()):
+                                if u_id not in BANNED_USERS and country_code in targets_list and get_user_balance(u_id) > 0:
+                                    markup = InlineKeyboardMarkup()
+                                    markup.add(InlineKeyboardButton("🛒 شراء الآن", callback_data=f"claim_{phone_number}_{idx}"))
+                                    formatted_msg = f"🥳 🎰 <b>الدولة متاحة الآن</b>\n\n{flag} {c_name}\n✅ رقم جاهز وفريش تماماً!\n💰 سعر الشراء: <b>${price:.2f}</b>\n\n🛒 اضغط شراء الآن لحجزه فوراً"
+                                    try: bot.send_message(u_id, formatted_msg, reply_markup=markup, parse_mode="HTML")
+                                    except: pass
+                            break
+                except: pass
+                time.sleep(0.1) # 🚀 وضع التوربو السريع لخطف الأرقام
+            time.sleep(0.1)
 
 def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name, flag):
     acc = DURIAN_ACCOUNTS[acc_index]
@@ -665,8 +649,8 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
         bot.edit_message_text(chat_id=user_id, message_id=status_msg_id, text=init_timer_text, reply_markup=None, parse_mode="HTML")
     except: pass
 
-    total_wait_seconds = 300 
-    check_interval = 15      
+    total_wait_seconds = 300  
+    check_interval = 15       
     loops = total_wait_seconds // check_interval
     
     for i in range(loops):

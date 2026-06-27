@@ -12,10 +12,10 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAFEsRsfQYvm_6NhNwugIBZB84gz5j_O9tQ")
 ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبوت 👑
 
-# 🔑 بيانات الحسابات لموقع Durian (ضع مفتاح كل حساب هنا)
+# 🔑 بيانات الحسابات لموقع Durian (تأكد من وضع المفتاحين هنا)
 DURIAN_ACCOUNTS = [
-    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"], # الحساب الأول
-    ["Abdelhadisayed", "YXRjMHFVSlVtR09RSytaeUNDMTZrQT09"]       # الحساب الثاني 🔥
+    ["Abdelhadisayed", "YXRjMHFVSlVtR09RSytaeUNDMTZrQT09"], # الحساب الأول
+    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"]  # الحساب الثاني - غير مفتاحه هنا إذا كان مختلفاً
 ]
 
 # 📢 المعرفات والروابط الرسمية المثبتة للمشروع
@@ -39,7 +39,7 @@ REFERRALS_FILE = "referrals.txt"
 
 USER_BALANCES = {}
 
-# ⚙️ تم تنظيف السطر أدناه بالكامل وحذف كود الـ span الخاطئ ليعمل فوراً بدون مشاكل
+# ⚙️ تم تنظيف قاموس الإعدادات بالكامل وحذف كود الـ span الخاطئ ليعمل فوراً
 SETTINGS = {
     "rate": 50.0, 
     "wallet": "01028520360", # رقم الكاش الثابت 📱
@@ -67,7 +67,7 @@ ALL_COUNTRIES = {
     "موريتانيا": {"code": "mr", "price": 0.25, "flag": "🇲🇷"}, "الكونغو الديمقراطية": {"code": "cd", "price": 0.25, "flag": "🇨🇩"},
     "أنغولا": {"code": "ao", "price": 0.25, "flag": "🇦🇴"}, "أفغانستان": {"code": "af", "price": 0.25, "flag": "🇦🇫"},
     "تنزانيا": {"code": "tz", "price": 0.25, "flag": "🇹🇿"}, "جمهورية الدومينيكان": {"code": "do", "price": 0.25, "flag": "🇩🇴"},
-    "موزمبيق": {"code": "mz", "price": 0.25, "flag": "🇲🇿"}, "الكاميرون": {"code": "cm", "price": 0.25, "flag": "🇨🇲"},
+    "موزمبيق": {"code": "mz", "price": 0.25, "flag": "🇲🇿"}, "الكاميرروون": {"code": "cm", "price": 0.25, "flag": "🇨🇲"},
     "السنغال": {"code": "sn", "price": 0.25, "flag": "🇸🇳"}, "كينيا": {"code": "ke", "price": 0.25, "flag": "🇰🇪"},
     "الكونغو": {"code": "cg", "price": 0.25, "flag": "🇨🇬"}, "الفلبين": {"code": "ph", "price": 0.25, "flag": "🇵🇭"},
     "أوغندا": {"code": "ug", "price": 0.25, "flag": "🇺🇬"}, "زامبيا": {"code": "zm", "price": 0.25, "flag": "🇿🇲"},
@@ -238,7 +238,7 @@ def get_countries_keyboard(user_id, page=0):
     markup = InlineKeyboardMarkup(row_width=2)
     user_targets = user_hunting_targets.get(user_id, [])
     items = list(ALL_COUNTRIES.items())
-    per_page = 10 
+    per_page = 10
     start = page * per_page
     end = start + per_page
     
@@ -626,7 +626,7 @@ def global_auto_buyer():
             if country_code not in active_codes: continue
             
             threads = []
-            # 🚀 فحص الحسابين بالتوازي الكامل في نفس الفيمتو ثانية
+            # 🚀 فحص الحسابين بالتوازي الكامل في نفس اللحظة عبر الـ Threading
             for idx, acc in enumerate(DURIAN_ACCOUNTS):
                 t = threading.Thread(
                     target=check_single_account_hunting, 
@@ -639,8 +639,9 @@ def global_auto_buyer():
             for t in threads:
                 t.join()
                 
-            time.sleep(0.05) 
-        time.sleep(0.05)
+            # ⏳ الفاصل الزمني الآمن المتزن تماماً لحماية الحسابات وسيرفر الـ IP من البطء
+            time.sleep(0.7) 
+        time.sleep(0.5)
 
 def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name, flag):
     acc = DURIAN_ACCOUNTS[acc_index]
@@ -653,7 +654,7 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
             progress_markup.add(InlineKeyboardButton(f"{step}", callback_data="none"))
             timer_text = f"🔄 <b>جاري تجهيز الخط... {step}</b>\n📱 الرقم: <code>[ جاري التأمين... * * * * * * * * * ]</code>"
             bot.edit_message_text(chat_id=user_id, message_id=status_msg_id, text=timer_text, reply_markup=progress_markup, parse_mode="HTML")
-            time.sleep(0.2) 
+            time.sleep(0.2)
         except: pass
 
     try:
@@ -665,8 +666,8 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
         bot.edit_message_text(chat_id=user_id, message_id=status_msg_id, text=init_timer_text, reply_markup=None, parse_mode="HTML")
     except: pass
 
-    total_wait_seconds = 300 
-    check_interval = 15      
+    total_wait_seconds = 300
+    check_interval = 15     
     loops = total_wait_seconds // check_interval
     
     for i in range(loops):

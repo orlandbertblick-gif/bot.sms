@@ -15,7 +15,7 @@ ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبو�
 # 🔑 بيانات الحسابات لموقع Durian (تأكد من وضع المفتاحين هنا)
 DURIAN_ACCOUNTS = [
     ["Abdelhadisayed", "YXRjMHFVSlVtR09RSytaeUNDMTZrQT09"], # الحساب الأول
-    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"]  # الحساب الثاني - غير مفتاحه هنا إذا كان مختلفاً
+    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"]  # الحساب الثاني
 ]
 
 # 📢 المعرفات والروابط الرسمية المثبتة للمشروع
@@ -39,7 +39,6 @@ REFERRALS_FILE = "referrals.txt"
 
 USER_BALANCES = {}
 
-# ⚙️ تم تنظيف قاموس الإعدادات بالكامل وحذف كود الـ span الخاطئ ليعمل فوراً
 SETTINGS = {
     "rate": 50.0, 
     "wallet": "01028520360", # رقم الكاش الثابت 📱
@@ -142,10 +141,7 @@ def load_all_data():
         except: pass
     if os.path.exists(PRICES_FILE):
         try:
-            with open(PRICES_FILE, "r") as f:
-                for line in f:
-                    if ":" in line: c_name, pr = line.strip().split(":");
-                    if c_name in ALL_COUNTRIES: ALL_COUNTRIES[c_name]["price"] = float(pr)
+            with open(PRICES_FILE, "w") as f: pass
         except: pass
     if os.path.exists(ORDERS_FILE):
         try:
@@ -168,7 +164,7 @@ def save_data(mode):
             with open(BALANCES_FILE, "w") as f:
                 for u_id, bal in USER_BALANCES.items(): f.write(f"{u_id}:{bal}\n")
         elif mode == "promos":
-            with open(PROMO_CODES, "w") as f:
+            with open(PROMOS_FILE, "w") as f:
                 for code, val in PROMO_CODES.items(): f.write(f"{code}:{val}\n")
         elif mode == "banned":
             with open(BANNED_FILE, "w") as f:
@@ -230,7 +226,7 @@ def get_main_keyboard():
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("🎯 تفعيل الصيد التلقائي", callback_data="manage_hunting"))
     markup.add(InlineKeyboardButton("💰 إيداع / شحن", callback_data="deposit"), InlineKeyboardButton("📋 أرقامي المشتراة", callback_data="user_orders"))
-    markup.add(InlineKeyboardButton("👥 رابط الإحالة والربح", callback_data="user_referral"), InlineKeyboardButton("🎫 شحن كود هدية", callback_data="user_redeem_promo"))
+    markup.add(InlineKeyboardButton("👥 رابط الإحالة والربح", callback_data="user_referral"), InlineKeyboardButton("🪙 شحن كود هدية", callback_data="user_redeem_promo"))
     markup.add(InlineKeyboardButton("👨‍💻 التواصل مع الدعم", url=SUPPORT_URL))
     return markup
 
@@ -563,33 +559,18 @@ def release_bad_number(phone_number, acc_index):
         requests.get(url, timeout=5)
     except: pass
 
-def is_number_banned_on_telegram(phone_number, acc_index):
-    acc = DURIAN_ACCOUNTS[acc_index]
-    try:
-        check_url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={acc[0]}&ApiKey={acc[1]}&pn={phone_number}&pid={str(SETTINGS['pid'])}&serial=2"
-        res = requests.get(check_url, timeout=4).json()
-        res_str = str(res).lower()
-        if res.get("code") == 905 or "block" in res_str or "ban" in res_str or "password" in res_str or "verify" in res_str or "email" in res_str:
-            return True
-    except: pass
-    return False
-
-# 🏎️ دالة فرعية لإرسال طلب فحص مستقل لكل حساب بالتوازي لمنع أي تأخير
-def check_single_account_hunting(acc, idx, country_code, c_name, c_info, active_codes):
+# 🔥 [وضع التوربو الأقصى] سحب فوري للأرقام بأعلى سرعة معالجة
+def check_single_account_hunting(acc, idx, country_code, c_name, c_info):
     if "اسم_الحساب" in acc[0] or "مفتاح_API" in acc[1]: return
     try:
         url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={acc[0]}&ApiKey={acc[1]}&cuy={country_code}&pid={str(SETTINGS['pid'])}&num=1&noblack=1&serial=2"
-        response = requests.get(url, timeout=3)
+        response = requests.get(url, timeout=2)
         
         if response.status_code == 200:
             res_json = response.json()
             if res_json.get("code") == 200:
                 phone_number = res_json.get("data")
                 
-                if is_number_banned_on_telegram(phone_number, idx):
-                    release_bad_number(phone_number, idx)
-                    return
-                    
                 price = c_info["price"]
                 flag = c_info["flag"]
                 active_hunted_numbers[phone_number] = {"country": c_name, "flag": flag, "price": price}
@@ -603,6 +584,7 @@ def check_single_account_hunting(acc, idx, country_code, c_name, c_info, active_
                         except: pass
     except: pass
 
+# 🔄 [التوربو المتزن الفائق] إرسال الطلبات فورا بالتناوب مع إضافة فاصل حماية ميكرو لحماية البوت من الطرد
 def global_auto_buyer():
     global hunting_active
     hunting_active = True
@@ -618,19 +600,21 @@ def global_auto_buyer():
             for target_code in targets_list: active_codes.add(target_code)
                 
         if not active_codes:
-            time.sleep(0.5)
+            time.sleep(0.1)
             continue
 
         for c_name, c_info in list(ALL_COUNTRIES.items()):
             country_code = c_info["code"]
             if country_code not in active_codes: continue
             
+            indexed_accounts = list(enumerate(DURIAN_ACCOUNTS))
+            random.shuffle(indexed_accounts) 
+            
             threads = []
-            # 🚀 فحص الحسابين بالتوازي الكامل في نفس اللحظة عبر الـ Threading
-            for idx, acc in enumerate(DURIAN_ACCOUNTS):
+            for idx, acc in indexed_accounts:
                 t = threading.Thread(
                     target=check_single_account_hunting, 
-                    args=(acc, idx, country_code, c_name, c_info, active_codes),
+                    args=(acc, idx, country_code, c_name, c_info),
                     daemon=True
                 )
                 threads.append(t)
@@ -639,9 +623,8 @@ def global_auto_buyer():
             for t in threads:
                 t.join()
                 
-            # ⏳ الفاصل الزمني الآمن المتزن تماماً لحماية الحسابات وسيرفر الـ IP من البطء
-            time.sleep(0.7) 
-        time.sleep(0.5)
+        # ⏱️ فاصل زمني ميكرو (0.05 ثانية) كافي لحماية الاتصال والـ IP ومنع الـ Connection Reset
+        time.sleep(0.05)
 
 def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name, flag):
     acc = DURIAN_ACCOUNTS[acc_index]
@@ -654,7 +637,7 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
             progress_markup.add(InlineKeyboardButton(f"{step}", callback_data="none"))
             timer_text = f"🔄 <b>جاري تجهيز الخط... {step}</b>\n📱 الرقم: <code>[ جاري التأمين... * * * * * * * * * ]</code>"
             bot.edit_message_text(chat_id=user_id, message_id=status_msg_id, text=timer_text, reply_markup=progress_markup, parse_mode="HTML")
-            time.sleep(0.2)
+            time.sleep(0.05)
         except: pass
 
     try:
@@ -667,14 +650,12 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
     except: pass
 
     total_wait_seconds = 300
-    check_interval = 15     
+    check_interval = 8     
     loops = total_wait_seconds // check_interval
     
     for i in range(loops):
         try:
             time.sleep(check_interval)
-
-            if is_number_banned_on_telegram(phone_number, acc_index): break
                 
             res = requests.get(sms_url, timeout=5).json()
             if res.get("code") == 200:
@@ -761,13 +742,14 @@ def process_admin_broadcast(message):
         except: pass
     bot.send_message(ADMIN_ID, f"✅ تم الإرسال لـ {count} زبون بنجاح.")
 
+# 🔄 [حماية الـ Polling الفائقة] تخطي أي خطأ اتصال مؤقت بشكل آلي ومنع انهيار الكود
 def run_bot_polling():
     while True:
         try:
-            bot.infinity_polling(timeout=80, long_polling_timeout=40)
+            bot.infinity_polling(timeout=40, long_polling_timeout=20)
         except Exception as e:
-            print(f"⚠️ خطأ في البولينج: {e}")
-            time.sleep(3)
+            print(f"⚠️ خطأ مؤقت في الاتصال، جاري إعادة التشغيل تلقائياً في ثانيتين: {e}")
+            time.sleep(2)
 
 def run_bot_safe():
     load_all_data()

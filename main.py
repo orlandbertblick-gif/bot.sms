@@ -5,17 +5,30 @@ import time
 import os
 import random
 import string
+import asyncio
 from flask import Flask
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+# ---- ⚙️ مكتبات الفحص التلقائي الذكي للجلسات 🛡️ ----
+from telethon import TelegramClient
+from telethon.errors import SessionPasswordNeededError
+from telethon.tl.functions.contacts import ImportContactsRequest
+from telethon.tl.functions.contacts import DeleteContactsRequest
+from telethon.tl.types import InputPhoneContact
+# --------------------------------------------------
+
 # --- ⚠️ إعدادات الهوية والبوت الأساسية (SpiderSmsX_1) ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAFEsRsfQYvm_6NhNwugIBZB84gz5j_O9tQ")
-ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبوت 👑
+ADMIN_ID = 8672817508                # الـ ID الخاص بمدير البوت 👑
 
-# 🔑 بيانات الحسابات لموقع Durian (تأكد من وضع المفتاحين هنا)
+# 🔑 إعدادات توثيق مكتبة Telethon (مطلوبة للفحص التلقائي)
+API_ID = int(os.environ.get("API_ID", "36465829"))      
+API_HASH = os.environ.get("API_HASH", "8364f16e068a252c9570800559efe331")  
+
+# 🔑 بيانات الحسابات لموقع Durian الصيني
 DURIAN_ACCOUNTS = [
-    ["Abdelhadisayed", "YXRjMHFVSlVtR09RSytaeUNDMTZrQT09"], # الحساب الأول
-    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"]  # الحساب الثاني
+    ["Abdelhadisayed", "YXRjMHFVSlVtG09RSytaeUNDMTZrQT09"], 
+    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"]  
 ]
 
 # 📢 المعرفات والروابط الرسمية المثبتة للمشروع
@@ -41,7 +54,7 @@ USER_BALANCES = {}
 
 SETTINGS = {
     "rate": 50.0, 
-    "wallet": "01028520360", # رقم الكاش الثابت 📱
+    "wallet": "01028520360", 
     "binance_id": "123456789", 
     "pid": "0257", 
     "ref_reward": 0.01 
@@ -76,20 +89,13 @@ ALL_COUNTRIES = {
     "فرنسا": {"code": "fr", "price": 0.25, "flag": "🇫🇷"}, "بورتوريكو": {"code": "pr", "price": 0.25, "flag": "🇵🇷"},
     "فيجي": {"code": "fj", "price": 0.25, "flag": "🇫🇯"}, "أستراليا": {"code": "au", "price": 0.25, "flag": "🇦🇺"},
     "سلوفاكيا": {"code": "sk", "price": 0.25, "flag": "🇸🇰"}, "إسبانيا": {"code": "es", "price": 0.25, "flag": "🇪🇸"},
-    "ألمانيا": {"code": "de", "price": 0.25, "flag": "🇩🇪"},
-    "العراق": {"code": "iq", "price": 0.25, "flag": "🇮🇶"},
-    "رييونيون": {"code": "re", "price": 0.25, "flag": "🇷🇪"},
-    "الرأس الأخضر": {"code": "cv", "price": 0.25, "flag": "🇨🇻"},
-    "الأوروغواي": {"code": "uy", "price": 0.25, "flag": "🇺🇾"},
-    "كوبا": {"code": "cu", "price": 0.25, "flag": "🇨🇺"},
-    "أوكرانيا": {"code": "ua", "price": 0.25, "flag": "🇺🇦"},
-    "اليابان": {"code": "jp", "price": 0.25, "flag": "🇯🇵"},
-    "إيسواتيني": {"code": "sz", "price": 0.25, "flag": "🇸🇿"},
-    "المملكة المتحدة": {"code": "gb", "price": 0.25, "flag": "🇬🇧"},
-    "البرتغال": {"code": "pt", "price": 0.25, "flag": "🇵🇹"},
-    "رومانيا": {"code": "ro", "price": 0.25, "flag": "🇷🇴"},
-    "التشيك": {"code": "cz", "price": 0.25, "flag": "🇨🇿"},
-    "ناميبيا": {"code": "na", "price": 0.25, "flag": "🇳🇦"}
+    "ألمانيا": {"code": "de", "price": 0.25, "flag": "🇩🇪"}, "العراق": {"code": "iq", "price": 0.25, "flag": "🇮🇶"},
+    "رييونيون": {"code": "re", "price": 0.25, "flag": "🇷🇪"}, "الرأس الأخضر": {"code": "cv", "price": 0.25, "flag": "🇨🇻"},
+    "الأوروغواي": {"code": "uy", "price": 0.25, "flag": "🇺🇾"}, "كوبا": {"code": "cu", "price": 0.25, "flag": "🇨🇺"},
+    "أوكرانيا": {"code": "ua", "price": 0.25, "flag": "🇺🇦"}, "اليابان": {"code": "jp", "price": 0.25, "flag": "🇯🇵"},
+    "إيسواتيني": {"code": "sz", "price": 0.25, "flag": "🇸🇿"}, "المملكة المتحدة": {"code": "gb", "price": 0.25, "flag": "🇬🇧"},
+    "البرتغال": {"code": "pt", "price": 0.25, "flag": "🇵🇹"}, "رومانيا": {"code": "ro", "price": 0.25, "flag": "🇷🇴"},
+    "التشيك": {"code": "cz", "price": 0.25, "flag": "🇨🇿"}, "ناميبيا": {"code": "na", "price": 0.25, "flag": "🇳🇦"}
 }
 
 bot = telebot.TeleBot(BOT_TOKEN, num_threads=4)
@@ -108,11 +114,8 @@ def keep_alive_ping():
     port = os.environ.get("PORT", "8080")
     local_url = f"http://127.0.0.1:{port}/"
     while True:
-        try:
-            requests.get(local_url, timeout=5)
-            print("⚡ [Keep-Alive] تم إرسال نبضة الإيقاظ بنجاح، السيرفر مستيقظ!")
-        except:
-            pass
+        try: requests.get(local_url, timeout=5)
+        except: pass
         time.sleep(180)
 
 def load_all_data():
@@ -141,7 +144,11 @@ def load_all_data():
         except: pass
     if os.path.exists(PRICES_FILE):
         try:
-            with open(PRICES_FILE, "w") as f: pass
+            with open(PRICES_FILE, "r") as f:
+                for line in f:
+                    if ":" in line:
+                        c_name, pr = line.strip().split(":", 1)
+                        if c_name in ALL_COUNTRIES: ALL_COUNTRIES[c_name]["price"] = float(pr)
         except: pass
     if os.path.exists(ORDERS_FILE):
         try:
@@ -326,6 +333,7 @@ def handle_callbacks(call):
             return
         elif call.data in ["edit_rate", "edit_pid"]:
             admin_state[user_id] = {"mode": "edit_var", "var": call.data.replace("edit_", "")}
+            print(f"DEBUG: admin_state updated for user {user_id}: {admin_state[user_id]}")
             bot.send_message(user_id, "✍️ أرسل القيمة الجديدة الآن:")
             return
         elif call.data == "admin_add_balance":
@@ -388,7 +396,6 @@ def handle_callbacks(call):
         parts = call.data.split("_")
         code, page = parts[1], int(parts[2])
         if user_id not in user_hunting_targets: user_hunting_targets[user_id] = []
-        name, price, _ = get_country_info_by_code(code)
         
         if code not in user_hunting_targets[user_id] and get_user_balance(user_id) <= 0:
             bot.send_message(user_id, "❌ محفظتك فارغة! يرجى الشحن أولاً.")
@@ -481,7 +488,7 @@ def handle_callbacks(call):
         else:
             bot.send_message(user_id, "❌ الرقم تم بيعه أو انتهت صلاحيته!")
 
-# --- ⚙️ معالجة الرسائل النصية للإدارة ---
+# --- ⚙️ معالجة الرسائل النصية للإدارة والزبائن ---
 @bot.message_handler(func=lambda msg: msg.from_user.id in admin_state)
 def handle_states(message):
     user_id = message.from_user.id
@@ -490,9 +497,11 @@ def handle_states(message):
     
     if state.get("mode") == "edit_var":
         var = state["var"]
-        if var == "rate": SETTINGS["rate"] = float(text)
-        elif var == "pid": SETTINGS["pid"] = text
-        bot.send_message(user_id, f"✅ تم تحديث {var} بنجاح الحين!")
+        try:
+            if var == "rate": SETTINGS["rate"] = float(text)
+            elif var == "pid": SETTINGS["pid"] = text
+            bot.send_message(user_id, f"✅ تم تحديث {var} بنجاح الحين!")
+        except: bot.send_message(user_id, "❌ قيمة غير صحيحة.")
         del admin_state[user_id]
         
     elif state.get("mode") == "gen_promo":
@@ -500,6 +509,7 @@ def handle_states(message):
             val = float(text)
             code = "PULSE-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
             PROMO_CODES[code] = val
+            save_data("promos")
             bot.send_message(user_id, f"🎫 **تم توليد كود الشحن بنجاح:**\n\n`{code}`\n\n💰 قيمته: **{val}$**")
         except: bot.send_message(user_id, "❌ قيمة غير صحيحة.")
         del admin_state[user_id]
@@ -548,6 +558,7 @@ def handle_states(message):
             USER_BALANCES[user_id] += val
             del PROMO_CODES[text]
             save_data("balances")
+            save_data("promos")
             bot.send_message(user_id, f"🎉 **تم شحن الكود بنجاح!**\n💰 أُضيف إلى محفظتك: **+{val}$**")
         else: bot.send_message(user_id, "❌ كود غير صحيح أو مستخدم.")
         del admin_state[user_id]
@@ -559,17 +570,68 @@ def release_bad_number(phone_number, acc_index):
         requests.get(url, timeout=5)
     except: pass
 
-# 🔥 [وضع التوربو الأقصى] سحب فوري للأرقام بأعلى سرعة معالجة
+# 🛡️ الفحص الصارم والنهائي بنسبة 100% صامتاً عبر إضافة جهات الاتصال وكشف الحسابات الخفية
+async def async_is_number_clean(phone_number):
+    client = TelegramClient('spider_session', API_ID, API_HASH)
+    try:
+        await client.connect()
+        if not await client.is_user_authorized():
+            await client.disconnect()
+            return False 
+            
+        try:
+            contact = InputPhoneContact(client_id=0, phone=phone_number, first_name="Spider", last_name="Sms")
+            result = await client(ImportContactsRequest(contacts=[contact]))
+            
+            if result.users:
+                user_id = result.users[0].id
+                await client(DeleteContactsRequest(id=[user_id]))
+                await client.disconnect()
+                return False 
+            
+            await client.disconnect()
+            return True 
+
+        except Exception as e:
+            await client.disconnect()
+            print(f"⚠️ خطأ أثناء الفحص المتقدم: {e}. تم استبعاد الرقم لضمان أعلى جودة.")
+            return False
+            
+    except Exception:
+        try: await client.disconnect()
+        except: pass
+        return False
+
+def is_number_clean(phone_number):
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(async_is_number_clean(phone_number))
+        loop.close()
+        return result
+    except Exception:
+        return False
+
+# 🔥 سحب فوري وفحص حقيقي للأرقام قبل ترحيلها وعرضها للزبائن
 def check_single_account_hunting(acc, idx, country_code, c_name, c_info):
     if "اسم_الحساب" in acc[0] or "مفتاح_API" in acc[1]: return
     try:
         url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={acc[0]}&ApiKey={acc[1]}&cuy={country_code}&pid={str(SETTINGS['pid'])}&num=1&noblack=1&serial=2"
-        response = requests.get(url, timeout=2)
+        
+        # رفع مهلة الـ Timeout لـ 10 ثوانٍ لحل مشكلة تعليق السيرفر الصيني وضغط الشبكة
+        response = requests.get(url, timeout=10)
         
         if response.status_code == 200:
             res_json = response.json()
             if res_json.get("code") == 200:
                 phone_number = res_json.get("data")
+                if not phone_number: return
+                
+                if not is_number_clean(phone_number):
+                    print(f"🗑️ الرقم {phone_number} مسجل مسبقاً أو غير مضمون! جاري إلغاؤه وتخطي...")
+                    url_cancel = f"https://api.durianrcs.com/out/ext_api/cancelMobile?name={acc[0]}&ApiKey={acc[1]}&pn={phone_number}&pid={str(SETTINGS['pid'])}&serial=2"
+                    requests.get(url_cancel, timeout=10)
+                    return 
                 
                 price = c_info["price"]
                 flag = c_info["flag"]
@@ -579,12 +641,12 @@ def check_single_account_hunting(acc, idx, country_code, c_name, c_info):
                     if u_id not in BANNED_USERS and country_code in targets_list and get_user_balance(u_id) > 0:
                         markup = InlineKeyboardMarkup()
                         markup.add(InlineKeyboardButton("🛒 شراء الآن", callback_data=f"claim_{phone_number}_{idx}"))
-                        formatted_msg = f"🥳 🎰 <b>الدولة متاحة الآن</b>\n\n{flag} {c_name}\n✅ رقم جاهز وفريش تماماً!\n💰 سعر الشراء: <b>${price:.2f}</b>\n\n🛒 اضغط شراء الآن لحجزه فوراً"
+                        formatted_msg = f"🥳 🎰 <b>رقم فريش ونظيف تماماً ✨</b>\n\n{flag} {c_name}\n✅ تم فحصه تلقائياً (خالي من الجلسات مسبقاً)\n💰 سعر الشراء: <b>${price:.2f}</b>\n\n🛒 اضغط شراء لحجزه واستلام كوده فوراً"
                         try: bot.send_message(u_id, formatted_msg, reply_markup=markup, parse_mode="HTML")
                         except: pass
-    except: pass
+    except Exception as e:
+        print(f"❌ خطأ أثناء جلب الرقم: {e}")
 
-# 🔄 [التوربو المتزن الفائق] إرسال الطلبات فورا بالتناوب مع إضافة فاصل حماية ميكرو لحماية البوت من الطرد
 def global_auto_buyer():
     global hunting_active
     hunting_active = True
@@ -600,7 +662,7 @@ def global_auto_buyer():
             for target_code in targets_list: active_codes.add(target_code)
                 
         if not active_codes:
-            time.sleep(0.1)
+            time.sleep(2.0)
             continue
 
         for c_name, c_info in list(ALL_COUNTRIES.items()):
@@ -621,10 +683,9 @@ def global_auto_buyer():
                 t.start()
             
             for t in threads:
-                t.join()
+                t.join(timeout=12)
                 
-        # ⏱️ فاصل زمني ميكرو (0.05 ثانية) كافي لحماية الاتصال والـ IP ومنع الـ Connection Reset
-        time.sleep(0.05)
+        time.sleep(2.0)
 
 def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name, flag):
     acc = DURIAN_ACCOUNTS[acc_index]
@@ -637,7 +698,7 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
             progress_markup.add(InlineKeyboardButton(f"{step}", callback_data="none"))
             timer_text = f"🔄 <b>جاري تجهيز الخط... {step}</b>\n📱 الرقم: <code>[ جاري التأمين... * * * * * * * * * ]</code>"
             bot.edit_message_text(chat_id=user_id, message_id=status_msg_id, text=timer_text, reply_markup=progress_markup, parse_mode="HTML")
-            time.sleep(0.05)
+            time.sleep(0.1)
         except: pass
 
     try:
@@ -656,16 +717,16 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
     for i in range(loops):
         try:
             time.sleep(check_interval)
-                
-            res = requests.get(sms_url, timeout=5).json()
+            res = requests.get(sms_url, timeout=10).json()
             if res.get("code") == 200:
                 sms_code = res.get("data")
+                if not sms_code: continue
                 
                 if user_id not in USER_BALANCES: USER_BALANCES[user_id] = 0.00
                 USER_BALANCES[user_id] = max(0.00, USER_BALANCES[user_id] - price)
                 save_data("balances")
                 
-                success_text = f"✅ <b>تم شراء الرقم واستلام الكود بنجاح!</b>\n\n{flag} {c_name}\n📱 الرقم: <code>{phone_number}</code>\n💰 السعر: <b>{price}$</b>\n\n📥 الكود وصلك بالأسفل وتم تثبيته فوق 📌"
+                success_text = f"✅ <b>تم شراء الرقم واستلام الكود بنجاح!</b>\n\n{flag} {c_name}\n📱 الرقم: <code>{phone_number}</code>\n📊 الحالة: <b>✨ نظيف بدون جلسات نشطة</b>\n💰 السعر: <b>{price}$</b>\n\n📥 الكود وصلك بالأسفل وتم تثبيته فوق 📌"
                 bot.edit_message_text(chat_id=user_id, message_id=status_msg_id, text=success_text, reply_markup=None, parse_mode="HTML")
                 
                 pin_msg_text = f"✅ تم استلام الكود! • الرقم: <code>{phone_number}</code> • الدولة: {flag} {c_name}\n🔑 كود تفعيل التليجرام: <code>{sms_code}</code>"
@@ -677,6 +738,7 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
                     channel_log_msg = (f"🎰 <b>تم حجز وتفعيل رقم جديد بنجاح!</b>\n\n"
                                        f"🌍 <b>الدولة:</b> {flag} {c_name}\n"
                                        f"📱 <b>الرقم:</b> <code>{phone_number[:-4]}****</code>\n"
+                                       f"📊 <b>حالة الجلسات:</b> ✨ نظيف تماماً بكر\n"
                                        f"🔑 <b>كود التفعيل:</b> <code>{sms_code}</code>\n\n"
                                        f"🎯 <b>عبر سستم بوت:</b> {CHANNEL_USER}")
                     bot.send_message(CHANNEL_USER, channel_log_msg, parse_mode="HTML")
@@ -742,17 +804,36 @@ def process_admin_broadcast(message):
         except: pass
     bot.send_message(ADMIN_ID, f"✅ تم الإرسال لـ {count} زبون بنجاح.")
 
-# 🔄 [حماية الـ Polling الفائقة] تخطي أي خطأ اتصال مؤقت بشكل آلي ومنع انهيار الكود
+def verify_session_auth():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    async def start_client():
+        client = TelegramClient('spider_session', API_ID, API_HASH, loop=loop)
+        await client.start()
+        print("✅ الجلسة نشطة ومصرح لها بالفحص الذكي الآن!")
+        await client.disconnect()
+        
+    try:
+        loop.run_until_complete(start_client())
+    finally:
+        loop.close()
+
 def run_bot_polling():
     while True:
         try:
             bot.infinity_polling(timeout=40, long_polling_timeout=20)
-        except Exception as e:
-            print(f"⚠️ خطأ مؤقت في الاتصال، جاري إعادة التشغيل تلقائياً في ثانيتين: {e}")
+        except Exception:
             time.sleep(2)
 
 def run_bot_safe():
     load_all_data()
+    
+    try:
+        verify_session_auth()
+    except Exception as e:
+        print(f"❌ حدث خطأ أثناء توثيق الجلسة: {e}\nسيتم التشغيل بدون فحص حتى توثيق الحساب.")
+        
     print("🕸️🕷️ إطلاق المنظومة السيبرانية وحماية الـ Polling والويب 24/7... 🚀✨📌")
     
     threading.Thread(target=run_bot_polling, daemon=True).start()

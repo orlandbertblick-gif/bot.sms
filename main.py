@@ -10,12 +10,12 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # --- ⚠️ إعدادات البوت الأساسية ---
 # الحين الكود بيقرأ التوكن أوتوماتيك من الـ Environment الخارجية لـ Render لمنع التهنيج
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAF1hhRnW9sTwuyamPLvvzXi_8TgQ00-drY")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAEi_XbgcPcePbggOzU4miN4PVbU79pT8Fs")
 ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبوت 👑
 
 # 🔑 بيانات الحسابات لموقع Durian 
 DURIAN_ACCOUNTS = [
-    ["Abdelhadisayed", "YXRjMHFVSlVtG09RSytaeUNDMTZrQT09"],
+    ["Abdelhadisayed", "OXgwaDJnNXIraDByNEVxRXFsNWVEUT09"],
     ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"]
 ]
 # -----------------------------------------------------------------

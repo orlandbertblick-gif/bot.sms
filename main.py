@@ -5,38 +5,22 @@ import time
 import os
 import random
 import string
-import asyncio
 from flask import Flask
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# ---- ⚙️ مكتبات الفحص التلقائي الذكي للجلسات 🛡️ ----
-from telethon import TelegramClient
-from telethon.errors import SessionPasswordNeededError
-from telethon.tl.functions.contacts import ImportContactsRequest
-from telethon.tl.functions.contacts import DeleteContactsRequest
-from telethon.tl.types import InputPhoneContact
-# --------------------------------------------------
+# --- ⚠️ إعدادات البوت الأساسية ---
+# الحين الكود بيقرأ التوكن أوتوماتيك من الـ Environment الخارجية لـ Render لمنع التهنيج
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAHXP9L4ApFLmJ7lJTjqxcyE2KvndGCcV0s")
+ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبوت 👑
 
-# --- ⚠️ إعدادات الهوية والبوت الأساسية (SpiderSmsX_1) ---
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAGxEKm64tLD7w5o8Lx8YgocJgTmNH8SSZM")
-ADMIN_ID = 8672817508                # الـ ID الخاص بمدير البوت 👑
-
-# 🔑 إعدادات توثيق مكتبة Telethon (مطلوبة للفحص التلقائي)
-API_ID = int(os.environ.get("API_ID", "36465829"))      
-API_HASH = os.environ.get("API_HASH", "8364f16e068a252c9570800559efe331")  
-
-# 🔑 بيانات الحسابات لموقع Durian الصيني
+# 🔑 بيانات الحسابات لموقع Durian 
 DURIAN_ACCOUNTS = [
-    ["Abdelhadisayed", "YXRjMHFVSlVtG09RSytaeUNDMTZrQT09"], 
-    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"]  
+    ["Abdelhadisayed", "YXRjMHFVSlVtG09RSytaeUNDMTZrQT09"],
+    ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"]
 ]
-
-# 📢 المعرفات والروابط الرسمية المثبتة للمشروع
-CHANNEL_USER = "@Spider_Sms_Channels"
-CHANNEL_URL = "https://t.me/Spider_Sms_Channels"
-SUPPORT_URL = "https://t.me/SpiderSmsX_1"
 # -----------------------------------------------------------------
 
+# تعريف المتغيرات أولاً لمنع الـ NameError
 user_hunting_targets = {}
 hunting_active = False
 active_hunted_numbers = {}
@@ -44,6 +28,7 @@ admin_state = {}
 USER_PURCHASE_COOLDOWN = {}
 
 BALANCES_FILE = "balances.txt"
+SETTINGS_FILE = "settings.txt"
 PROMOS_FILE = "promos.txt"
 ORDERS_FILE = "orders.txt"
 PRICES_FILE = "prices.txt"
@@ -51,15 +36,16 @@ BANNED_FILE = "banned.txt"
 REFERRALS_FILE = "referrals.txt"
 
 USER_BALANCES = {}
-
 SETTINGS = {
     "rate": 50.0, 
-    "wallet": "01028520360", 
+    "wallet": "010xxxxxxx", 
     "binance_id": "123456789", 
     "pid": "0257", 
+    "support": "https://t.me/YourSupportUsername",
+    "channel_user": "@YourChannelUsername", 
+    "channel_url": "https://t.me/YourChannelUsername", 
     "ref_reward": 0.01 
 }
-
 PROMO_CODES = {}
 USER_ORDERS = {}
 BANNED_USERS = set()
@@ -69,10 +55,9 @@ SYSTEM_STATS = {"total_sales": 0.0, "successful_orders": 0, "failed_orders": 0}
 
 ALL_COUNTRIES = {
     "مصر": {"code": "eg", "price": 0.25, "flag": "🇪🇬"}, "روسيا": {"code": "ru", "price": 0.25, "flag": "🇷🇺"},
-    "كازاخستان": {"code": "kz", "price": 0.25, "flag": "🇰🇿"},
     "أمريكا": {"code": "us", "price": 0.25, "flag": "🇺🇸"}, "الهند": {"code": "in", "price": 0.25, "flag": "🇮🇳"},
     "تونس": {"code": "tn", "price": 0.25, "flag": "🇹🇳"}, "الأرجنتين": {"code": "ar", "price": 0.25, "flag": "🇦🇷"},
-    "الجزائر": {"code": "dz", "price": 0.25, "flag": "🇩🇿"}, "ليبيا": {"code": "ly", "price": 0.25, "flag": "🇱🇾"},
+    "الجزائر": {"code": "dz", "price": 0.25, "flag": "🇩🇿"}, "كازخستان": {"code": "kz", "price": 0.25, "flag": "🇰🇿"},
     "سوريا": {"code": "sy", "price": 0.25, "flag": "🇸🇾"}, "الأردن": {"code": "jo", "price": 0.25, "flag": "🇯🇴"},
     "الإمارات": {"code": "ae", "price": 0.25, "flag": "🇦🇪"}, "جنوب إفريقيا": {"code": "tz", "price": 0.25, "flag": "🇿🇦"},
     "نيجيريا": {"code": "ng", "price": 0.25, "flag": "🇳🇬"}, "تايلاند": {"code": "th", "price": 0.25, "flag": "🇹🇭"},
@@ -80,7 +65,7 @@ ALL_COUNTRIES = {
     "موريتانيا": {"code": "mr", "price": 0.25, "flag": "🇲🇷"}, "الكونغو الديمقراطية": {"code": "cd", "price": 0.25, "flag": "🇨🇩"},
     "أنغولا": {"code": "ao", "price": 0.25, "flag": "🇦🇴"}, "أفغانستان": {"code": "af", "price": 0.25, "flag": "🇦🇫"},
     "تنزانيا": {"code": "tz", "price": 0.25, "flag": "🇹🇿"}, "جمهورية الدومينيكان": {"code": "do", "price": 0.25, "flag": "🇩🇴"},
-    "موزمبيق": {"code": "mz", "price": 0.25, "flag": "🇲🇿"}, "الكاميرروون": {"code": "cm", "price": 0.25, "flag": "🇨🇲"},
+    "موزمبيق": {"code": "mz", "price": 0.25, "flag": "🇲🇿"}, "الكاميرون": {"code": "cm", "price": 0.25, "flag": "🇨🇲"},
     "السنغال": {"code": "sn", "price": 0.25, "flag": "🇸🇳"}, "كينيا": {"code": "ke", "price": 0.25, "flag": "🇰🇪"},
     "الكونغو": {"code": "cg", "price": 0.25, "flag": "🇨🇬"}, "الفلبين": {"code": "ph", "price": 0.25, "flag": "🇵🇭"},
     "أوغندا": {"code": "ug", "price": 0.25, "flag": "🇺🇬"}, "زامبيا": {"code": "zm", "price": 0.25, "flag": "🇿🇲"},
@@ -90,16 +75,12 @@ ALL_COUNTRIES = {
     "فرنسا": {"code": "fr", "price": 0.25, "flag": "🇫🇷"}, "بورتوريكو": {"code": "pr", "price": 0.25, "flag": "🇵🇷"},
     "فيجي": {"code": "fj", "price": 0.25, "flag": "🇫🇯"}, "أستراليا": {"code": "au", "price": 0.25, "flag": "🇦🇺"},
     "سلوفاكيا": {"code": "sk", "price": 0.25, "flag": "🇸🇰"}, "إسبانيا": {"code": "es", "price": 0.25, "flag": "🇪🇸"},
-    "ألمانيا": {"code": "de", "price": 0.25, "flag": "🇩🇪"}, "العراق": {"code": "iq", "price": 0.25, "flag": "🇮🇶"},
-    "رييونيون": {"code": "re", "price": 0.25, "flag": "🇷🇪"}, "الرأس الأخضر": {"code": "cv", "price": 0.25, "flag": "🇨🇻"},
-    "الأوروغواي": {"code": "uy", "price": 0.25, "flag": "🇺🇾"}, "كوبا": {"code": "cu", "price": 0.25, "flag": "🇨🇺"},
-    "أوكرانيا": {"code": "ua", "price": 0.25, "flag": "🇺🇦"}, "اليابان": {"code": "jp", "price": 0.25, "flag": "🇯🇵"},
-    "إيسواتيني": {"code": "sz", "price": 0.25, "flag": "🇸🇿"}, "المملكة المتحدة": {"code": "gb", "price": 0.25, "flag": "🇬🇧"},
-    "البرتغال": {"code": "pt", "price": 0.25, "flag": "🇵🇹"}, "رومانيا": {"code": "ro", "price": 0.25, "flag": "🇷🇴"},
-    "التشيك": {"code": "cz", "price": 0.25, "flag": "🇨🇿"}, "ناميبيا": {"code": "na", "price": 0.25, "flag": "🇳🇦"}
+    "ألمانيا": {"code": "de", "price": 0.25, "flag": "🇩🇪"}
 }
 
 bot = telebot.TeleBot(BOT_TOKEN, num_threads=4)
+
+# --- 🌐 إعداد خادم الويب ومنظومة الحماية من النوم الإجباري ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -111,14 +92,18 @@ def run_flask_server():
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive_ping():
-    time.sleep(30)
+    time.sleep(30) # الانتظار حتى يستقر إقلاع السيرفر تماماً
     port = os.environ.get("PORT", "8080")
     local_url = f"http://127.0.0.1:{port}/"
     while True:
-        try: requests.get(local_url, timeout=5)
-        except: pass
-        time.sleep(180)
+        try:
+            requests.get(local_url, timeout=5)
+            print("⚡ [Keep-Alive] تم إرسال نبضة الإيقاظ بنجاح، السيرفر مستيقظ!")
+        except:
+            pass
+        time.sleep(180) # نبضة تنشيطية كل 3 دقائق بدلاً من 5 لزيادة الأمان
 
+# --- وظائف السيستم والبيانات ---
 def load_all_data():
     global USER_BALANCES, SETTINGS, PROMO_CODES, USER_ORDERS, ALL_COUNTRIES, BANNED_USERS, SYSTEM_STATS, USED_REFERRALS
     if os.path.exists(BALANCES_FILE):
@@ -126,6 +111,14 @@ def load_all_data():
             with open(BALANCES_FILE, "r") as f:
                 for line in f:
                     if ":" in line: u_id, bal = line.strip().split(":"); USER_BALANCES[int(u_id)] = float(bal)
+        except: pass
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                for line in f:
+                    if "=" in line: 
+                        k, v = line.strip().split("=")
+                        SETTINGS[k] = float(v) if k in ["rate", "ref_reward"] else v
         except: pass
     if os.path.exists(PROMOS_FILE):
         try:
@@ -147,9 +140,8 @@ def load_all_data():
         try:
             with open(PRICES_FILE, "r") as f:
                 for line in f:
-                    if ":" in line:
-                        c_name, pr = line.strip().split(":", 1)
-                        if c_name in ALL_COUNTRIES: ALL_COUNTRIES[c_name]["price"] = float(pr)
+                    if ":" in line: c_name, pr = line.strip().split(":"); 
+                    if c_name in ALL_COUNTRIES: ALL_COUNTRIES[c_name]["price"] = float(pr)
         except: pass
     if os.path.exists(ORDERS_FILE):
         try:
@@ -171,6 +163,9 @@ def save_data(mode):
         if mode == "balances":
             with open(BALANCES_FILE, "w") as f:
                 for u_id, bal in USER_BALANCES.items(): f.write(f"{u_id}:{bal}\n")
+        elif mode == "settings":
+            with open(SETTINGS_FILE, "w") as f:
+                for k, v in SETTINGS.items(): f.write(f"{k}={v}\n")
         elif mode == "promos":
             with open(PROMOS_FILE, "w") as f:
                 for code, val in PROMO_CODES.items(): f.write(f"{code}:{val}\n")
@@ -193,7 +188,7 @@ def log_order(user_id, order_text):
     except: pass
 
 def get_user_balance(user_id):
-    if user_id not in USER_BALANCES:
+    if user_id not in USER_BALANCES: 
         USER_BALANCES[user_id] = 0.00
         save_data("balances")
     return USER_BALANCES[user_id]
@@ -203,21 +198,43 @@ def get_country_info_by_code(code):
         if info["code"] == code: return name, info["price"], info["flag"]
     return f"دولة ({code})", 0.25, "🌍"
 
+def check_user_joined_channel(user_id):
+    if user_id == ADMIN_ID: return True
+    if "YourChannelUsername" in SETTINGS["channel_user"]: return True
+    try:
+        member = bot.get_chat_member(SETTINGS["channel_user"], user_id)
+        if member.status in ['member', 'creator', 'administrator']: return True
+    except: pass
+    return False
+
+def get_force_join_keyboard():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton("📢 اشترك في القناة من هنا أولاً 📢", url=SETTINGS["channel_url"]),
+        InlineKeyboardButton("🔄 ✅ تحقق من الاشتراك الحين", callback_data="check_join_btn")
+    )
+    return markup
+
 def get_admin_dashboard_keyboard():
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("💰 شحن رصيد لزبون", callback_data="admin_add_balance"), InlineKeyboardButton("➖ سحب رصيد", callback_data="admin_sub_balance"))
-    markup.add(InlineKeyboardButton("⚙️ إعدادات الأسعار والكاش", callback_data="admin_set_vars"), InlineKeyboardButton("🎫 توليد كود شحن", callback_data="admin_gen_promo"))
+    markup.add(InlineKeyboardButton("⚙️ تعديل الكاش والسعر", callback_data="admin_set_vars"), InlineKeyboardButton("🎫 توليد كود شحن", callback_data="admin_gen_promo"))
     markup.add(InlineKeyboardButton("🌍 تعديل سعر دولة", callback_data="admin_set_country_price"), InlineKeyboardButton("📊 تعديل جماعي للأسعار", callback_data="admin_mass_price"))
-    markup.add(InlineKeyboardButton("👥 إدارة حظر زبون", callback_data="admin_manage_user"), InlineKeyboardButton("📢 إذاعة رسالة برودكاست", callback_data="admin_broadcast"))
+    markup.add(InlineKeyboardButton("👥 إدارة زبون معين", callback_data="admin_manage_user"), InlineKeyboardButton("📢 إذاعة رسالة برودكاست", callback_data="admin_broadcast"))
     markup.add(InlineKeyboardButton("🔄 تنظيف الذاكرة والتعليق", callback_data="admin_clear_cache"), InlineKeyboardButton("🔄 تحديث لوحة التحكم", callback_data="admin_refresh_stats"))
     return markup
 
 def get_admin_vars_keyboard():
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton(f"📱 رقم الكاش الحالي ({SETTINGS['wallet']})", callback_data="none"),
+        InlineKeyboardButton(f"📱 رقم الكاش الحالي ({SETTINGS['wallet']})", callback_data="edit_wallet"),
         InlineKeyboardButton(f"💵 سعر الدولار الحالي ({SETTINGS['rate']} ج.م)", callback_data="edit_rate"),
+        InlineKeyboardButton(f"🪙 بايننس باي ID الحالي ({SETTINGS['binance_id']})", callback_data="edit_binance"),
         InlineKeyboardButton(f"🎯 كود المشروع الحالى ({SETTINGS['pid']})", callback_data="edit_pid"),
+        InlineKeyboardButton(f"📢 يوزر القناة الإلزامية ({SETTINGS['channel_user']})", callback_data="edit_chuser"),
+        InlineKeyboardButton(f"🔗 رابط القناة الإلزامية", callback_data="edit_churl"),
+        InlineKeyboardButton(f"🎁 هدية الإحالة الحالية ({SETTINGS['ref_reward']}$)", callback_data="edit_refreward"),
+        InlineKeyboardButton(f"👨‍💻 يوزر الدعم الحالي", callback_data="edit_support"),
         InlineKeyboardButton("🔙 عودة للوحة الإدارة", callback_data="admin_back_main")
     )
     return markup
@@ -234,15 +251,15 @@ def get_main_keyboard():
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("🎯 تفعيل الصيد التلقائي", callback_data="manage_hunting"))
     markup.add(InlineKeyboardButton("💰 إيداع / شحن", callback_data="deposit"), InlineKeyboardButton("📋 أرقامي المشتراة", callback_data="user_orders"))
-    markup.add(InlineKeyboardButton("👥 رابط الإحالة والربح", callback_data="user_referral"), InlineKeyboardButton("🪙 شحن كود هدية", callback_data="user_redeem_promo"))
-    markup.add(InlineKeyboardButton("👨‍💻 التواصل مع الدعم", url=SUPPORT_URL))
+    markup.add(InlineKeyboardButton("👥 رابط الإحالة والربح", callback_data="user_referral"), InlineKeyboardButton("🎫 شحن كود هدية", callback_data="user_redeem_promo"))
+    markup.add(InlineKeyboardButton("👨‍💻 التواصل مع الدعم", url=SETTINGS["support"]))
     return markup
 
 def get_countries_keyboard(user_id, page=0):
     markup = InlineKeyboardMarkup(row_width=2)
     user_targets = user_hunting_targets.get(user_id, [])
     items = list(ALL_COUNTRIES.items())
-    per_page = 10
+    per_page = 10  
     start = page * per_page
     end = start + per_page
     
@@ -289,6 +306,10 @@ def send_welcome(message):
                     try: bot.send_message(inviter_id, f"🎉 <b>دخل زبون جديد عبر رابط إحالتك!</b>\n💰 المكافأة: <b>+{reward}$</b>")
                     except: pass
         except: pass
+
+    if not check_user_joined_channel(user_id):
+        bot.send_message(message.chat.id, f"⚠️ <b>يجب الاشتراك في قناة البوت الرسمية أولاً لتفعيل الحساب!</b>", reply_markup=get_force_join_keyboard(), parse_mode="HTML")
+        return
         
     if user_id == ADMIN_ID:
         admin_text = (
@@ -313,6 +334,17 @@ def handle_callbacks(call):
     try: bot.answer_callback_query(call.id)
     except: pass
 
+    if call.data == "check_join_btn":
+        if check_user_joined_channel(user_id):
+            welcome_text = f"• <u><b>🕸️ 𝕾𝕻𝕴𝕯𝕰𝕽 𝕾𝕸𝕾 🕷️ - Auto Hunting Bot</b></u> •\n\n💰 <b>رصيدك الحالي:</b> {get_user_balance(user_id):.2f} $\n\n🆔 الـ ID الخاص بك: <code>{user_id}</code>"
+            bot.edit_message_text(chat_id=user_id, message_id=call.message.id, text=welcome_text, reply_markup=get_main_keyboard(), parse_mode="HTML")
+        else:
+            try: bot.send_message(user_id, "❌ لسه مشركتش يا غالي! اشترك الحين.")
+            except: pass
+        return
+
+    if not check_user_joined_channel(user_id) and user_id != ADMIN_ID: return
+
     if user_id == ADMIN_ID:
         if call.data == "admin_back_main":
             admin_text = (
@@ -332,9 +364,8 @@ def handle_callbacks(call):
         elif call.data == "admin_set_vars":
             bot.edit_message_text(chat_id=user_id, message_id=call.message.id, text="⚙️ **إعدادات ومغيرات السيستم من التليجرام:**", reply_markup=get_admin_vars_keyboard(), parse_mode="Markdown")
             return
-        elif call.data in ["edit_rate", "edit_pid"]:
+        elif call.data in ["edit_wallet", "edit_rate", "edit_binance", "edit_pid", "edit_chuser", "edit_churl", "edit_refreward", "edit_support"]:
             admin_state[user_id] = {"mode": "edit_var", "var": call.data.replace("edit_", "")}
-            print(f"DEBUG: admin_state updated for user {user_id}: {admin_state[user_id]}")
             bot.send_message(user_id, "✍️ أرسل القيمة الجديدة الآن:")
             return
         elif call.data == "admin_add_balance":
@@ -397,6 +428,7 @@ def handle_callbacks(call):
         parts = call.data.split("_")
         code, page = parts[1], int(parts[2])
         if user_id not in user_hunting_targets: user_hunting_targets[user_id] = []
+        name, price, _ = get_country_info_by_code(code)
         
         if code not in user_hunting_targets[user_id] and get_user_balance(user_id) <= 0:
             bot.send_message(user_id, "❌ محفظتك فارغة! يرجى الشحن أولاً.")
@@ -489,7 +521,7 @@ def handle_callbacks(call):
         else:
             bot.send_message(user_id, "❌ الرقم تم بيعه أو انتهت صلاحيته!")
 
-# --- ⚙️ معالجة الرسائل النصية للإدارة والزبائن ---
+# --- ⚙️ معالجة الرسائل النصية ---
 @bot.message_handler(func=lambda msg: msg.from_user.id in admin_state)
 def handle_states(message):
     user_id = message.from_user.id
@@ -498,11 +530,16 @@ def handle_states(message):
     
     if state.get("mode") == "edit_var":
         var = state["var"]
-        try:
-            if var == "rate": SETTINGS["rate"] = float(text)
-            elif var == "pid": SETTINGS["pid"] = text
-            bot.send_message(user_id, f"✅ تم تحديث {var} بنجاح الحين!")
-        except: bot.send_message(user_id, "❌ قيمة غير صحيحة.")
+        if var == "rate": SETTINGS["rate"] = float(text)
+        elif var == "wallet": SETTINGS["wallet"] = text
+        elif var == "binance": SETTINGS["binance_id"] = text
+        elif var == "pid": SETTINGS["pid"] = text
+        elif var == "chuser": SETTINGS["channel_user"] = text
+        elif var == "churl": SETTINGS["channel_url"] = text
+        elif var == "refreward": SETTINGS["ref_reward"] = float(text)
+        elif var == "support": SETTINGS["support"] = text
+        save_data("settings")
+        bot.send_message(user_id, f"✅ تم تحديث {var} بنجاح الحين!")
         del admin_state[user_id]
         
     elif state.get("mode") == "gen_promo":
@@ -558,8 +595,8 @@ def handle_states(message):
             if user_id not in USER_BALANCES: USER_BALANCES[user_id] = 0.00
             USER_BALANCES[user_id] += val
             del PROMO_CODES[text]
-            save_data("balances")
             save_data("promos")
+            save_data("balances")
             bot.send_message(user_id, f"🎉 **تم شحن الكود بنجاح!**\n💰 أُضيف إلى محفظتك: **+{val}$**")
         else: bot.send_message(user_id, "❌ كود غير صحيح أو مستخدم.")
         del admin_state[user_id]
@@ -571,82 +608,16 @@ def release_bad_number(phone_number, acc_index):
         requests.get(url, timeout=5)
     except: pass
 
-# 🛡️ الفحص الصارم والنهائي بنسبة 100% صامتاً عبر إضافة جهات الاتصال وكشف الحسابات الخفية
-async def async_is_number_clean(phone_number):
-    client = TelegramClient('spider_session', API_ID, API_HASH)
+def is_number_banned_on_telegram(phone_number, acc_index):
+    acc = DURIAN_ACCOUNTS[acc_index]
     try:
-        await client.connect()
-        if not await client.is_user_authorized():
-            await client.disconnect()
-            return False 
-            
-        try:
-            contact = InputPhoneContact(client_id=0, phone=phone_number, first_name="Spider", last_name="Sms")
-            result = await client(ImportContactsRequest(contacts=[contact]))
-            
-            if result.users:
-                user_id = result.users[0].id
-                await client(DeleteContactsRequest(id=[user_id]))
-                await client.disconnect()
-                return False 
-            
-            await client.disconnect()
-            return True 
-
-        except Exception as e:
-            await client.disconnect()
-            print(f"⚠️ خطأ أثناء الفحص المتقدم: {e}. تم استبعاد الرقم لضمان أعلى جودة.")
-            return False
-            
-    except Exception:
-        try: await client.disconnect()
-        except: pass
-        return False
-
-def is_number_clean(phone_number):
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(async_is_number_clean(phone_number))
-        loop.close()
-        return result
-    except Exception:
-        return False
-
-# 🔥 سحب فوري وفحص حقيقي للأرقام قبل ترحيلها وعرضها للزبائن
-def check_single_account_hunting(acc, idx, country_code, c_name, c_info):
-    if "اسم_الحساب" in acc[0] or "مفتاح_API" in acc[1]: return
-    try:
-        url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={acc[0]}&ApiKey={acc[1]}&cuy={country_code}&pid={str(SETTINGS['pid'])}&num=1&noblack=1&serial=2"
-        
-        # رفع مهلة الـ Timeout لـ 10 ثوانٍ لحل مشكلة تعليق السيرفر الصيني وضغط الشبكة
-        response = requests.get(url, timeout=10)
-        
-        if response.status_code == 200:
-            res_json = response.json()
-            if res_json.get("code") == 200:
-                phone_number = res_json.get("data")
-                if not phone_number: return
-                
-                if not is_number_clean(phone_number):
-                    print(f"🗑️ الرقم {phone_number} مسجل مسبقاً أو غير مضمون! جاري إلغاؤه وتخطي...")
-                    url_cancel = f"https://api.durianrcs.com/out/ext_api/cancelMobile?name={acc[0]}&ApiKey={acc[1]}&pn={phone_number}&pid={str(SETTINGS['pid'])}&serial=2"
-                    requests.get(url_cancel, timeout=10)
-                    return 
-                
-                price = c_info["price"]
-                flag = c_info["flag"]
-                active_hunted_numbers[phone_number] = {"country": c_name, "flag": flag, "price": price}
-                
-                for u_id, targets_list in list(user_hunting_targets.items()):
-                    if u_id not in BANNED_USERS and country_code in targets_list and get_user_balance(u_id) > 0:
-                        markup = InlineKeyboardMarkup()
-                        markup.add(InlineKeyboardButton("🛒 شراء الآن", callback_data=f"claim_{phone_number}_{idx}"))
-                        formatted_msg = f"🥳 🎰 <b>رقم فريش ونظيف تماماً ✨</b>\n\n{flag} {c_name}\n✅ تم فحصه تلقائياً (خالي من الجلسات مسبقاً)\n💰 سعر الشراء: <b>${price:.2f}</b>\n\n🛒 اضغط شراء لحجزه واستلام كوده فوراً"
-                        try: bot.send_message(u_id, formatted_msg, reply_markup=markup, parse_mode="HTML")
-                        except: pass
-    except Exception as e:
-        print(f"❌ خطأ أثناء جلب الرقم: {e}")
+        check_url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={acc[0]}&ApiKey={acc[1]}&pn={phone_number}&pid={str(SETTINGS['pid'])}&serial=2"
+        res = requests.get(check_url, timeout=4).json()
+        res_str = str(res).lower()
+        if res.get("code") == 905 or "block" in res_str or "ban" in res_str or "password" in res_str or "verify" in res_str or "email" in res_str:
+            return True
+    except: pass
+    return False
 
 def global_auto_buyer():
     global hunting_active
@@ -663,30 +634,43 @@ def global_auto_buyer():
             for target_code in targets_list: active_codes.add(target_code)
                 
         if not active_codes:
-            time.sleep(2.0)
+            time.sleep(1)
             continue
 
         for c_name, c_info in list(ALL_COUNTRIES.items()):
             country_code = c_info["code"]
             if country_code not in active_codes: continue
             
-            indexed_accounts = list(enumerate(DURIAN_ACCOUNTS))
-            random.shuffle(indexed_accounts) 
-            
-            threads = []
-            for idx, acc in indexed_accounts:
-                t = threading.Thread(
-                    target=check_single_account_hunting, 
-                    args=(acc, idx, country_code, c_name, c_info),
-                    daemon=True
-                )
-                threads.append(t)
-                t.start()
-            
-            for t in threads:
-                t.join(timeout=12)
-                
-        time.sleep(2.0)
+            for idx, acc in enumerate(DURIAN_ACCOUNTS):
+                if "اسم_الحساب" in acc[0] or "مفتاح_API" in acc[1]: continue
+                try:
+                    url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={acc[0]}&ApiKey={acc[1]}&cuy={country_code}&pid={str(SETTINGS['pid'])}&num=1&noblack=1&serial=2"
+                    response = requests.get(url, timeout=4)
+                    
+                    if response.status_code == 200:
+                        res_json = response.json()
+                        if res_json.get("code") == 200:
+                            phone_number = res_json.get("data")
+                            
+                            if is_number_banned_on_telegram(phone_number, idx):
+                                release_bad_number(phone_number, idx)
+                                continue
+                                
+                            price = c_info["price"]
+                            flag = c_info["flag"]
+                            active_hunted_numbers[phone_number] = {"country": c_name, "flag": flag, "price": price}
+                            
+                            for u_id, targets_list in list(user_hunting_targets.items()):
+                                if u_id not in BANNED_USERS and check_user_joined_channel(u_id) and country_code in targets_list and get_user_balance(u_id) > 0:
+                                    markup = InlineKeyboardMarkup()
+                                    markup.add(InlineKeyboardButton("🛒 شراء الآن", callback_data=f"claim_{phone_number}_{idx}"))
+                                    formatted_msg = f"🥳 🎰 <b>الدولة متاحة الآن</b>\n\n{flag} {c_name}\n✅ رقم جاهز وفريش تماماً!\n💰 سعر الشراء: <b>${price:.2f}</b>\n\n🛒 اضغط شراء الآن لحجزه فوراً"
+                                    try: bot.send_message(u_id, formatted_msg, reply_markup=markup, parse_mode="HTML")
+                                    except: pass
+                            break
+                except: pass
+                time.sleep(0.5)
+            time.sleep(0.5)
 
 def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name, flag):
     acc = DURIAN_ACCOUNTS[acc_index]
@@ -699,7 +683,7 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
             progress_markup.add(InlineKeyboardButton(f"{step}", callback_data="none"))
             timer_text = f"🔄 <b>جاري تجهيز الخط... {step}</b>\n📱 الرقم: <code>[ جاري التأمين... * * * * * * * * * ]</code>"
             bot.edit_message_text(chat_id=user_id, message_id=status_msg_id, text=timer_text, reply_markup=progress_markup, parse_mode="HTML")
-            time.sleep(0.1)
+            time.sleep(0.3) 
         except: pass
 
     try:
@@ -707,27 +691,29 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
                           f"🌍 <b>الدولة:</b> {flag} {c_name}\n"
                           f"📱 <b>الرقم المحجوز لك:</b> <code>{phone_number}</code>\n\n"
                           f"⏳ <b>جاري فحص وصول الكود الحين...</b>\n"
-                          f"✨ <i>يرجى الانتظار، سيتم ترحيل الكود فور وصوله تلقائياً.</i>")
+                          f"✨ <i>يرجى الانتظار، سيتم تثبيت الكود فور وصوله تلقائياً.</i>")
         bot.edit_message_text(chat_id=user_id, message_id=status_msg_id, text=init_timer_text, reply_markup=None, parse_mode="HTML")
     except: pass
 
-    total_wait_seconds = 300
-    check_interval = 8     
+    total_wait_seconds = 300  
+    check_interval = 15       
     loops = total_wait_seconds // check_interval
     
     for i in range(loops):
         try:
             time.sleep(check_interval)
-            res = requests.get(sms_url, timeout=10).json()
+
+            if is_number_banned_on_telegram(phone_number, acc_index): break
+                
+            res = requests.get(sms_url, timeout=5).json()
             if res.get("code") == 200:
                 sms_code = res.get("data")
-                if not sms_code: continue
                 
                 if user_id not in USER_BALANCES: USER_BALANCES[user_id] = 0.00
                 USER_BALANCES[user_id] = max(0.00, USER_BALANCES[user_id] - price)
                 save_data("balances")
                 
-                success_text = f"✅ <b>تم شراء الرقم واستلام الكود بنجاح!</b>\n\n{flag} {c_name}\n📱 الرقم: <code>{phone_number}</code>\n📊 الحالة: <b>✨ نظيف بدون جلسات نشطة</b>\n💰 السعر: <b>{price}$</b>\n\n📥 الكود وصلك بالأسفل وتم تثبيته فوق 📌"
+                success_text = f"✅ <b>تم شراء الرقم واستلام الكود بنجاح!</b>\n\n{flag} {c_name}\n📱 الرقم: <code>{phone_number}</code>\n💰 السعر: <b>{price}$</b>\n\n📥 الكود وصلك بالأسفل وتم تثبيته فوق 📌"
                 bot.edit_message_text(chat_id=user_id, message_id=status_msg_id, text=success_text, reply_markup=None, parse_mode="HTML")
                 
                 pin_msg_text = f"✅ تم استلام الكود! • الرقم: <code>{phone_number}</code> • الدولة: {flag} {c_name}\n🔑 كود تفعيل التليجرام: <code>{sms_code}</code>"
@@ -735,16 +721,6 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
                 try: bot.pin_chat_message(chat_id=user_id, message_id=sent_pin_msg.message_id, disable_notification=False)
                 except: pass
                 
-                try:
-                    channel_log_msg = (f"🎰 <b>تم حجز وتفعيل رقم جديد بنجاح!</b>\n\n"
-                                       f"🌍 <b>الدولة:</b> {flag} {c_name}\n"
-                                       f"📱 <b>الرقم:</b> <code>{phone_number[:-4]}****</code>\n"
-                                       f"📊 <b>حالة الجلسات:</b> ✨ نظيف تماماً بكر\n"
-                                       f"🔑 <b>كود التفعيل:</b> <code>{sms_code}</code>\n\n"
-                                       f"🎯 <b>عبر سستم بوت:</b> {CHANNEL_USER}")
-                    bot.send_message(CHANNEL_USER, channel_log_msg, parse_mode="HTML")
-                except: pass
-
                 log_order(user_id, f"📱 {phone_number} | كود: {sms_code} | سعر: {price}$")
                 SYSTEM_STATS["successful_orders"] += 1
                 SYSTEM_STATS["total_sales"] += price
@@ -805,42 +781,28 @@ def process_admin_broadcast(message):
         except: pass
     bot.send_message(ADMIN_ID, f"✅ تم الإرسال لـ {count} زبون بنجاح.")
 
-def verify_session_auth():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
-    async def start_client():
-        client = TelegramClient('spider_session', API_ID, API_HASH, loop=loop)
-        await client.start()
-        print("✅ الجلسة نشطة ومصرح لها بالفحص الذكي الآن!")
-        await client.disconnect()
-        
-    try:
-        loop.run_until_complete(start_client())
-    finally:
-        loop.close()
-
 def run_bot_polling():
     while True:
         try:
-            bot.infinity_polling(timeout=40, long_polling_timeout=20)
-        except Exception:
-            time.sleep(2)
+            bot.infinity_polling(timeout=80, long_polling_timeout=40)
+        except Exception as e:
+            print(f"⚠️ خطأ في البولينج: {e}")
+            time.sleep(3)
 
 def run_bot_safe():
     load_all_data()
-    
-    try:
-        verify_session_auth()
-    except Exception as e:
-        print(f"❌ حدث خطأ أثناء توثيق الجلسة: {e}\nسيتم التشغيل بدون فحص حتى توثيق الحساب.")
-        
     print("🕸️🕷️ إطلاق المنظومة السيبرانية وحماية الـ Polling والويب 24/7... 🚀✨📌")
     
+    # 1. تشغيل محرك التليجرام (Polling) في خيط مستقل بالخلفية
     threading.Thread(target=run_bot_polling, daemon=True).start()
+    
+    # 2. تشغيل منظومة البنج الذاتي الفائقة (كل 3 دقائق) في خيط مستقل
     threading.Thread(target=keep_alive_ping, daemon=True).start()
+    
+    # 3. تشغيل محرك الصيد التلقائي بعد استقرار المتغيرات في خيط مستقل
     threading.Thread(target=global_auto_buyer, daemon=True).start()
     
+    # 4. 🔥 جعل خادم الويب الأساسي (Flask) هو العملية الرئيسية لمنع النوم نهائياً
     run_flask_server()
 
 if __name__ == "__main__":

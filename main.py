@@ -10,7 +10,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # --- ⚠️ إعدادات البوت الأساسية ---
 # الحين الكود بيقرأ التوكن أوتوماتيك من الـ Environment الخارجية لـ Render لمنع التهنيج
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAEi_XbgcPcePbggOzU4miN4PVbU79pT8Fs")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAGjv62TzhqNtFaw5qAQ7jiEBOmLXeecDPY")
 ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبوت 👑
 
 # 🔑 بيانات الحسابات لموقع Durian 

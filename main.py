@@ -7,20 +7,19 @@ import random
 import string
 from flask import Flask
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from concurrent.futures import ThreadPoolExecutor
 
 # --- ⚠️ إعدادات البوت الأساسية ---
-# الحين الكود بيقرأ التوكن أوتوماتيك من الـ Environment الخارجية لـ Render لمنع التهنيج
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAGjv62TzhqNtFaw5qAQ7jiEBOmLXeecDPY")
-ADMIN_ID = 8672817508                # الـ ID بتاعك كمدير للبوت 👑
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8891688659:AAGaySZPAY2Ksw3UcIlk08aZ4uGFTlcUr94")
+ADMIN_ID = 8672817508
 
 # 🔑 بيانات الحسابات لموقع Durian 
 DURIAN_ACCOUNTS = [
-    ["Abdelhadisayed", "OXgwaDJnNXIraDByNEVxRXFsNWVEUT09"],
+    ["Abdelhadisayed", "YXRjMHFVSlVtR09RSytaeUNDMTZrQT09"],
     ["3bdelhadisayed", "N3BIVTV2OWxheFFYenpFL0NrbW45Zz09"]
 ]
 # -----------------------------------------------------------------
 
-# تعريف المتغيرات أولاً لمنع الـ NameError
 user_hunting_targets = {}
 hunting_active = False
 active_hunted_numbers = {}
@@ -78,9 +77,15 @@ ALL_COUNTRIES = {
     "ألمانيا": {"code": "de", "price": 0.25, "flag": "🇩🇪"}
 }
 
-bot = telebot.TeleBot(BOT_TOKEN, num_threads=4)
+bot = telebot.TeleBot(BOT_TOKEN, num_threads=8)
 
-# --- 🌐 إعداد خادم الويب ومنظومة الحماية من النوم الإجباري ---
+# جلسة اتصالات سريعة مع تفعيل Connection Pooling
+http_session = requests.Session()
+adapter = requests.adapters.HTTPAdapter(pool_connections=25, pool_maxsize=25)
+http_session.mount('https://', adapter)
+http_session.mount('http://', adapter)
+
+# --- 🌐 خادم الويب ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -92,16 +97,15 @@ def run_flask_server():
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive_ping():
-    time.sleep(30) # الانتظار حتى يستقر إقلاع السيرفر تماماً
+    time.sleep(30)
     port = os.environ.get("PORT", "8080")
     local_url = f"http://127.0.0.1:{port}/"
     while True:
         try:
-            requests.get(local_url, timeout=5)
-            print("⚡ [Keep-Alive] تم إرسال نبضة الإيقاظ بنجاح، السيرفر مستيقظ!")
+            http_session.get(local_url, timeout=5)
         except:
             pass
-        time.sleep(180) # نبضة تنشيطية كل 3 دقائق بدلاً من 5 لزيادة الأمان
+        time.sleep(180)
 
 # --- وظائف السيستم والبيانات ---
 def load_all_data():
@@ -489,8 +493,8 @@ def handle_callbacks(call):
         current_time = time.time()
         last_purchase_time = USER_PURCHASE_COOLDOWN.get(user_id, 0)
         
-        if current_time - last_purchase_time < 5:
-            bot.send_message(user_id, "⚠️ يرجى الانتظار 5 ثوانٍ بين محاولات الشراء.")
+        if current_time - last_purchase_time < 3:
+            bot.send_message(user_id, "⚠️ يرجى الانتظار 3 ثوانٍ بين محاولات الشراء.")
             return
 
         parts = call.data.split("_")
@@ -605,72 +609,86 @@ def release_bad_number(phone_number, acc_index):
     acc = DURIAN_ACCOUNTS[acc_index]
     try:
         url = f"https://api.durianrcs.com/out/ext_api/cancelMobile?name={acc[0]}&ApiKey={acc[1]}&pn={phone_number}&pid={str(SETTINGS['pid'])}&serial=2"
-        requests.get(url, timeout=5)
+        http_session.get(url, timeout=3)
     except: pass
 
 def is_number_banned_on_telegram(phone_number, acc_index):
     acc = DURIAN_ACCOUNTS[acc_index]
     try:
         check_url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={acc[0]}&ApiKey={acc[1]}&pn={phone_number}&pid={str(SETTINGS['pid'])}&serial=2"
-        res = requests.get(check_url, timeout=4).json()
+        res = http_session.get(check_url, timeout=3).json()
         res_str = str(res).lower()
-        if res.get("code") == 905 or "block" in res_str or "ban" in res_str or "password" in res_str or "verify" in res_str or "email" in res_str:
+        if res.get("code") == 905 or any(k in res_str for k in ["block", "ban", "password", "verify", "email"]):
             return True
     except: pass
     return False
 
+# فحص دولة معينة بشكل متوازي وسريع
+def hunt_country(country_code, c_name, c_info):
+    for idx, acc in enumerate(DURIAN_ACCOUNTS):
+        if "اسم_الحساب" in acc[0] or "مفتاح_API" in acc[1]: 
+            continue
+        try:
+            url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={acc[0]}&ApiKey={acc[1]}&cuy={country_code}&pid={str(SETTINGS['pid'])}&num=1&noblack=1&serial=2"
+            response = http_session.get(url, timeout=2.5)
+            
+            if response.status_code == 200:
+                res_json = response.json()
+                if res_json.get("code") == 200:
+                    phone_number = res_json.get("data")
+                    
+                    if is_number_banned_on_telegram(phone_number, idx):
+                        release_bad_number(phone_number, idx)
+                        continue
+                        
+                    price = c_info["price"]
+                    flag = c_info["flag"]
+                    active_hunted_numbers[phone_number] = {"country": c_name, "flag": flag, "price": price}
+                    
+                    for u_id, targets_list in list(user_hunting_targets.items()):
+                        if u_id not in BANNED_USERS and check_user_joined_channel(u_id) and country_code in targets_list and get_user_balance(u_id) > 0:
+                            markup = InlineKeyboardMarkup()
+                            markup.add(InlineKeyboardButton("🛒 شراء الآن", callback_data=f"claim_{phone_number}_{idx}"))
+                            formatted_msg = f"🥳 🎰 <b>الدولة متاحة الآن</b>\n\n{flag} {c_name}\n✅ رقم جاهز وفريش تماماً!\n💰 سعر الشراء: <b>${price:.2f}</b>\n\n🛒 اضغط شراء الآن لحجزه فوراً"
+                            try: bot.send_message(u_id, formatted_msg, reply_markup=markup, parse_mode="HTML")
+                            except: pass
+                    break
+        except Exception:
+            pass
+
 def global_auto_buyer():
     global hunting_active
     hunting_active = True
-    while hunting_active:
-        for u_id, targets_list in list(user_hunting_targets.items()):
-            if get_user_balance(u_id) <= 0 and len(targets_list) > 0:
-                user_hunting_targets[u_id] = []
-                try: bot.send_message(u_id, f"🛑 **تم إيقاف الصيد التلقائي لجميع الدول لأن رصيدك انتهى!**")
-                except: pass
+    
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        while hunting_active:
+            for u_id, targets_list in list(user_hunting_targets.items()):
+                if get_user_balance(u_id) <= 0 and len(targets_list) > 0:
+                    user_hunting_targets[u_id] = []
+                    try: bot.send_message(u_id, "🛑 **تم إيقاف الصيد التلقائي لجميع الدول لأن رصيدك انتهى!**")
+                    except: pass
 
-        active_codes = set()
-        for targets_list in user_hunting_targets.values():
-            for target_code in targets_list: active_codes.add(target_code)
-                
-        if not active_codes:
-            time.sleep(1)
-            continue
-
-        for c_name, c_info in list(ALL_COUNTRIES.items()):
-            country_code = c_info["code"]
-            if country_code not in active_codes: continue
-            
-            for idx, acc in enumerate(DURIAN_ACCOUNTS):
-                if "اسم_الحساب" in acc[0] or "مفتاح_API" in acc[1]: continue
-                try:
-                    url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={acc[0]}&ApiKey={acc[1]}&cuy={country_code}&pid={str(SETTINGS['pid'])}&num=1&noblack=1&serial=2"
-                    response = requests.get(url, timeout=4)
+            active_codes = set()
+            for targets_list in user_hunting_targets.values():
+                for target_code in targets_list: 
+                    active_codes.add(target_code)
                     
-                    if response.status_code == 200:
-                        res_json = response.json()
-                        if res_json.get("code") == 200:
-                            phone_number = res_json.get("data")
-                            
-                            if is_number_banned_on_telegram(phone_number, idx):
-                                release_bad_number(phone_number, idx)
-                                continue
-                                
-                            price = c_info["price"]
-                            flag = c_info["flag"]
-                            active_hunted_numbers[phone_number] = {"country": c_name, "flag": flag, "price": price}
-                            
-                            for u_id, targets_list in list(user_hunting_targets.items()):
-                                if u_id not in BANNED_USERS and check_user_joined_channel(u_id) and country_code in targets_list and get_user_balance(u_id) > 0:
-                                    markup = InlineKeyboardMarkup()
-                                    markup.add(InlineKeyboardButton("🛒 شراء الآن", callback_data=f"claim_{phone_number}_{idx}"))
-                                    formatted_msg = f"🥳 🎰 <b>الدولة متاحة الآن</b>\n\n{flag} {c_name}\n✅ رقم جاهز وفريش تماماً!\n💰 سعر الشراء: <b>${price:.2f}</b>\n\n🛒 اضغط شراء الآن لحجزه فوراً"
-                                    try: bot.send_message(u_id, formatted_msg, reply_markup=markup, parse_mode="HTML")
-                                    except: pass
-                            break
-                except: pass
-                time.sleep(0.5)
-            time.sleep(0.5)
+            if not active_codes:
+                time.sleep(1)
+                continue
+
+            tasks = []
+            for c_name, c_info in ALL_COUNTRIES.items():
+                if c_info["code"] in active_codes:
+                    tasks.append(executor.submit(hunt_country, c_info["code"], c_name, c_info))
+            
+            for task in tasks:
+                try:
+                    task.result()
+                except Exception:
+                    pass
+                    
+            time.sleep(0.2)
 
 def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name, flag):
     acc = DURIAN_ACCOUNTS[acc_index]
@@ -683,7 +701,7 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
             progress_markup.add(InlineKeyboardButton(f"{step}", callback_data="none"))
             timer_text = f"🔄 <b>جاري تجهيز الخط... {step}</b>\n📱 الرقم: <code>[ جاري التأمين... * * * * * * * * * ]</code>"
             bot.edit_message_text(chat_id=user_id, message_id=status_msg_id, text=timer_text, reply_markup=progress_markup, parse_mode="HTML")
-            time.sleep(0.3) 
+            time.sleep(0.15) 
         except: pass
 
     try:
@@ -696,7 +714,7 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
     except: pass
 
     total_wait_seconds = 300  
-    check_interval = 15       
+    check_interval = 8       
     loops = total_wait_seconds // check_interval
     
     for i in range(loops):
@@ -705,7 +723,7 @@ def wait_for_sms(user_id, phone_number, price, acc_index, status_msg_id, c_name,
 
             if is_number_banned_on_telegram(phone_number, acc_index): break
                 
-            res = requests.get(sms_url, timeout=5).json()
+            res = http_session.get(sms_url, timeout=4).json()
             if res.get("code") == 200:
                 sms_code = res.get("data")
                 
@@ -786,24 +804,15 @@ def run_bot_polling():
         try:
             bot.infinity_polling(timeout=80, long_polling_timeout=40)
         except Exception as e:
-            print(f"⚠️ خطأ في البولينج: {e}")
             time.sleep(3)
 
 def run_bot_safe():
     load_all_data()
-    print("🕸️🕷️ إطلاق المنظومة السيبرانية وحماية الـ Polling والويب 24/7... 🚀✨📌")
-    
-    # 1. تشغيل محرك التليجرام (Polling) في خيط مستقل بالخلفية
     threading.Thread(target=run_bot_polling, daemon=True).start()
-    
-    # 2. تشغيل منظومة البنج الذاتي الفائقة (كل 3 دقائق) في خيط مستقل
     threading.Thread(target=keep_alive_ping, daemon=True).start()
-    
-    # 3. تشغيل محرك الصيد التلقائي بعد استقرار المتغيرات في خيط مستقل
     threading.Thread(target=global_auto_buyer, daemon=True).start()
-    
-    # 4. 🔥 جعل خادم الويب الأساسي (Flask) هو العملية الرئيسية لمنع النوم نهائياً
     run_flask_server()
 
 if __name__ == "__main__":
     run_bot_safe()
+
